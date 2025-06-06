@@ -18,7 +18,11 @@ export const PrivateRoute = ({ children, routeType }) => {
   });
 
   // Check if the session is still loading before determining authentication status
-  if (session.isLoading || apiRoles.isLoading) {
+  if (
+    session.isLoading ||
+    apiRoles.isLoading ||
+    (apiRoles.isFetching && (apiRoles.data === null || apiRoles.data === undefined))
+  ) {
     return <LoadingPage />;
   }
 
@@ -48,7 +52,7 @@ export const PrivateRoute = ({ children, routeType }) => {
     session?.data?.clientPrincipal?.userDetails !== apiRoles?.data?.clientPrincipal?.userDetails
   ) {
     // refetch the profile if the user details are different
-    refetch();
+    apiRoles.refetch();
   }
 
   if (null !== apiRoles?.data?.clientPrincipal && undefined !== apiRoles?.data) {

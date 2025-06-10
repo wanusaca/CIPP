@@ -78,6 +78,39 @@
     "recommendedBy": ["CIPP"]
   },
   {
+    "name": "standards.DeployContactTemplates",
+    "cat": "Exchange Standards",
+    "tag": [],
+    "helpText": "Creates new mail contacts in Exchange Online across all selected tenants based on the selected templates. The contact will be visible in the Global Address List unless hidden.",
+    "docsDescription": "This standard creates new mail contacts in Exchange Online based on the selected templates. Mail contacts are useful for adding external email addresses to your organization's address book. They can be used for distribution lists, shared mailboxes, and other collaboration scenarios.",
+    "addedComponent": [
+      {
+        "type": "autoComplete",
+        "multiple": true,
+        "creatable": false,
+        "label": "Select Mail Contact Templates",
+        "name": "standards.DeployContactTemplates.templateIds",
+        "api": {
+          "url": "/api/ListContactTemplates",
+          "labelField": "name",
+          "valueField": "GUID",
+          "queryKey": "Contact Templates"
+        }
+      }
+    ],
+    "label": "Deploy Mail Contact Template",
+    "disabledFeatures": {
+      "report": false,
+      "warn": false,
+      "remediate": false
+    },
+    "impact": "Low Impact",
+    "impactColour": "info",
+    "addedDate": "2025-05-31",
+    "powershellEquivalent": "New-MailContact",
+    "recommendedBy": ["CIPP"]
+  },
+  {
     "name": "standards.AuditLog",
     "cat": "Global Standards",
     "tag": ["CIS", "mip_search_auditlog"],
@@ -89,6 +122,20 @@
     "addedDate": "2021-11-16",
     "powershellEquivalent": "Enable-OrganizationCustomization",
     "recommendedBy": ["CIS", "CIPP"]
+  },
+  {
+    "name": "standards.RestrictThirdPartyStorageServices",
+    "cat": "Global Standards",
+    "tag": ["CIS"],
+    "helpText": "Restricts third-party storage services in Microsoft 365 on the web by managing the Microsoft 365 on the web service principal. This disables integrations with services like Dropbox, Google Drive, Box, and other third-party storage providers.",
+    "docsDescription": "Third-party storage can be enabled for users in Microsoft 365, allowing them to store and share documents using services such as Dropbox, alongside OneDrive and team sites. This standard ensures Microsoft 365 on the web third-party storage services are restricted by creating and disabling the Microsoft 365 on the web service principal (appId: c1f33bc0-bdb4-4248-ba9b-096807ddb43e). By using external storage services an organization may increase the risk of data breaches and unauthorized access to confidential information. Additionally, third-party services may not adhere to the same security standards as the organization, making it difficult to maintain data privacy and security. Impact is highly dependent upon current practices - if users do not use other storage providers, then minimal impact is likely. However, if users regularly utilize providers outside of the tenant this will affect their ability to continue to do so.",
+    "addedComponent": [],
+    "label": "Restrict third-party storage services in Microsoft 365 on the web",
+    "impact": "Medium Impact",
+    "impactColour": "warning",
+    "addedDate": "2025-06-06",
+    "powershellEquivalent": "New-MgServicePrincipal and Update-MgServicePrincipal",
+    "recommendedBy": ["CIS"]
   },
   {
     "name": "standards.ProfilePhotos",
@@ -223,6 +270,19 @@
     "addedDate": "2024-06-05",
     "powershellEquivalent": "Update-MgBetaAdminPeoplePronoun -IsEnabledInOrganization:$true",
     "recommendedBy": []
+  },
+  {
+    "name": "standards.EnableNamePronunciation",
+    "cat": "Global Standards",
+    "tag": [],
+    "helpText": "Enables the Name Pronunciation feature for the tenant. This allows users to set their name pronunciation in their profile.",
+    "docsDescription": "Enables the Name Pronunciation feature for the tenant. This allows users to set their name pronunciation in their profile.",
+    "addedComponent": [],
+    "label": "Enable Name Pronunciation",
+    "impact": "Low Impact",
+    "impactColour": "info",
+    "addedDate": "2025-06-06",
+    "recommendedBy": ["CIPP"]
   },
   {
     "name": "standards.AnonReportDisable",
@@ -494,6 +554,10 @@
           {
             "label": "Disabled",
             "value": "disabled"
+          },
+          {
+            "label": "Microsoft managed",
+            "value": "default"
           }
         ]
       }
@@ -546,6 +610,20 @@
     "addedDate": "2022-12-18",
     "powershellEquivalent": "Update-MgBetaPolicyAuthenticationMethodPolicyAuthenticationMethodConfiguration",
     "recommendedBy": []
+  },
+  {
+    "name": "standards.FormsPhishingProtection",
+    "cat": "Global Standards",
+    "tag": ["CIS", "Security", "PhishingProtection"],
+    "helpText": "Enables internal phishing protection for Microsoft Forms to help prevent malicious forms from being created and shared within the organization. This feature scans forms created by internal users for potential phishing content and suspicious patterns.",
+    "docsDescription": "Enables internal phishing protection for Microsoft Forms by setting the isInOrgFormsPhishingScanEnabled property to true. This security feature helps protect organizations from internal phishing attacks through Microsoft Forms by automatically scanning forms created by internal users for potential malicious content, suspicious links, and phishing patterns. When enabled, Forms will analyze form content and block or flag potentially dangerous forms before they can be shared within the organization.",
+    "addedComponent": [],
+    "label": "Enable internal phishing protection for Forms",
+    "impact": "Low Impact",
+    "impactColour": "info",
+    "addedDate": "2025-06-06",
+    "powershellEquivalent": "Graph API",
+    "recommendedBy": ["CIS", "CIPP"]
   },
   {
     "name": "standards.TAP",
@@ -1006,7 +1084,7 @@
         "label": "Preferred Language",
         "api": {
           "url": "/languageList.json",
-          "labelField": "language",
+          "labelField": "tag",
           "valueField": "tag"
         }
       }
@@ -1793,10 +1871,24 @@
     "helpText": "Blocks login for all accounts that are marked as a shared mailbox. This is Microsoft best practice to prevent direct logons to shared mailboxes.",
     "docsDescription": "Shared mailboxes can be directly logged into if the password is reset, this presents a security risk as do all shared login credentials. Microsoft's recommendation is to disable the user account for shared mailboxes. It would be a good idea to review the sign-in reports to establish potential impact.",
     "addedComponent": [],
-    "label": "Disable Shared Mailbox AAD accounts",
+    "label": "Disable Shared Mailbox Entra accounts",
     "impact": "Medium Impact",
     "impactColour": "warning",
     "addedDate": "2021-11-16",
+    "powershellEquivalent": "Get-Mailbox & Update-MgUser",
+    "recommendedBy": ["CIS", "CIPP"]
+  },
+  {
+    "name": "standards.DisableResourceMailbox",
+    "cat": "Exchange Standards",
+    "tag": ["CIS"],
+    "helpText": "Blocks login for all accounts that are marked as a resource mailbox and does not have a license assigned. Accounts that are synced from on-premises AD are excluded, as account state is managed in the on-premises AD.",
+    "docsDescription": "Resource mailboxes can be directly logged into if the password is reset, this presents a security risk as do all shared login credentials. Microsoft's recommendation is to disable the user account for resource mailboxes. Accounts that are synced from on-premises AD are excluded, as account state is managed in the on-premises AD.",
+    "addedComponent": [],
+    "label": "Disable Unlicensed Resource Mailbox Entra accounts",
+    "impact": "Medium Impact",
+    "impactColour": "warning",
+    "addedDate": "2025-06-01",
     "powershellEquivalent": "Get-Mailbox & Update-MgUser",
     "recommendedBy": ["CIS", "CIPP"]
   },
@@ -1889,6 +1981,35 @@
     "addedDate": "2025-04-07",
     "powershellEquivalent": "New-ProtectionAlert and Set-ProtectionAlert",
     "recommendedBy": []
+  },
+  {
+    "name": "standards.SafeLinksTemplatePolicy",
+    "label": "SafeLinks Policy Template",
+    "cat": "Templates",
+    "multiple": false,
+    "disabledFeatures": {
+      "report": false,
+      "warn": false,
+      "remediate": false
+    },
+    "impact": "Medium Impact",
+    "addedDate": "2025-04-29",
+    "helpText": "Deploy and manage SafeLinks policy templates to protect against malicious URLs in emails and Office documents.",
+    "addedComponent": [
+      {
+        "type": "autoComplete",
+        "multiple": true,
+        "creatable": false,
+        "name": "standards.SafeLinksTemplatePolicy.TemplateIds",
+        "label": "Select SafeLinks Policy Templates",
+        "api": {
+          "url": "/api/ListSafeLinksPolicyTemplates",
+          "labelField": "TemplateName",
+          "valueField": "GUID",
+          "queryKey": "ListSafeLinksPolicyTemplates"
+        }
+      }
+    ]
   },
   {
     "name": "standards.SafeLinksPolicy",
@@ -3552,6 +3673,26 @@
     "addedDate": "2024-07-30",
     "powershellEquivalent": "Set-CsTeamsClientConfiguration -AllowEmailIntoChannel $false",
     "recommendedBy": ["CIS"]
+  },
+  {
+    "name": "standards.TeamsGuestAccess",
+    "cat": "Teams Standards",
+    "tag": [],
+    "helpText": "Allow guest users access to teams.",
+    "docsDescription": "Allow guest users access to teams. Guest users are users who are not part of your organization but have been invited to collaborate with your organization in Teams. This setting allows you to control whether guest users can access Teams.",
+    "addedComponent": [
+      {
+        "type": "switch",
+        "name": "standards.TeamsGuestAccess.AllowGuestUser",
+        "label": "Allow guest users"
+      }
+    ],
+    "label": "Allow guest users in Teams",
+    "impact": "Low Impact",
+    "impactColour": "info",
+    "addedDate": "2025-06-03",
+    "powershellEquivalent": "Set-CsTeamsClientConfiguration -AllowGuestUser $true",
+    "recommendedBy": []
   },
   {
     "name": "standards.TeamsExternalFileSharing",

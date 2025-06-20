@@ -7,6 +7,7 @@
     "ADMS",
     "AITM",
     "Augmentt",
+    "Automapping",
     "Autotask",
     "Choco",
     "cipp",
@@ -30,7 +31,8 @@
     "Sherweb",
     "Syncro",
     "TERRL",
-    "Yubikey"
+    "Yubikey",
+    "DMARC"
   ],
   "ignoreWords": [
     "Addins",
@@ -40,6 +42,7 @@
     "PSTN",
     "TNEF",
     "Equivio",
+    "defaultvalues",
     "Excludedfile",
     "exo_individualsharing",
     "exo_mailboxaudit",
@@ -67,7 +70,9 @@
     "mdo_zapspam",
     "microsoftonline",
     "mip_search_auditlog",
-    "winmail"
+    "winmail",
+    "onmicrosoft.com",
+    "MOERA"
   ],
   "import": []
 }

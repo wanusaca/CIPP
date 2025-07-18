@@ -161,7 +161,8 @@ const EditGroup = () => {
       >
         {groupInfo.isSuccess && groupInfo.data?.groupInfo?.onPremisesSyncEnabled && (
           <Alert severity="error" sx={{ mb: 1 }}>
-            This group is synced from on-premises Active Directory. Changes should be made in the on-premises environment instead.
+            This group is synced from on-premises Active Directory. Changes should be made in the
+            on-premises environment instead.
           </Alert>
         )}
         {showMembershipTable ? (
@@ -240,6 +241,14 @@ const EditGroup = () => {
                   multiple={true}
                   isFetching={groupInfo.isFetching}
                   disabled={groupInfo.isFetching}
+                  addedField={{
+                    id: "id",
+                    displayName: "displayName",
+                    userPrincipalName: "userPrincipalName",
+                  }}
+                  dataFilter={(option) =>
+                    !groupInfo.data?.members?.some((m) => m.id === option.value)
+                  }
                 />
               </Grid>
 
@@ -251,6 +260,14 @@ const EditGroup = () => {
                   multiple={true}
                   isFetching={groupInfo.isFetching}
                   disabled={groupInfo.isFetching}
+                  addedField={{
+                    id: "id",
+                    displayName: "displayName",
+                    userPrincipalName: "userPrincipalName",
+                  }}
+                  dataFilter={(option) =>
+                    !groupInfo.data?.owners?.some((o) => o.id === option.value)
+                  }
                 />
               </Grid>
 
@@ -267,6 +284,11 @@ const EditGroup = () => {
                   }}
                   isFetching={groupInfo.isFetching}
                   disabled={groupInfo.isFetching}
+                  dataFilter={(option) =>
+                    !groupInfo.data?.members
+                      ?.filter((m) => m?.["@odata.type"] === "#microsoft.graph.orgContact")
+                      ?.some((c) => c.id === option.value)
+                  }
                 />
               </Grid>
 
@@ -289,8 +311,12 @@ const EditGroup = () => {
                       ?.filter((m) => m?.["@odata.type"] !== "#microsoft.graph.orgContact")
                       ?.map((m) => ({
                         label: `${m.displayName} (${m.userPrincipalName})`,
-                        value: m.userPrincipalName,
-                        addedFields: { id: m.id },
+                        value: m.id,
+                        addedFields: {
+                          userPrincipalName: m.userPrincipalName,
+                          displayName: m.displayName,
+                          id: m.id,
+                        },
                       })) || []
                   }
                 />
@@ -308,8 +334,12 @@ const EditGroup = () => {
                   options={
                     groupInfo.data?.owners?.map((o) => ({
                       label: `${o.displayName} (${o.userPrincipalName})`,
-                      value: o.userPrincipalName,
-                      addedFields: { id: o.id },
+                      value: o.id,
+                      addedFields: {
+                        userPrincipalName: o.userPrincipalName,
+                        displayName: o.displayName,
+                        id: o.id,
+                      },
                     })) || []
                   }
                 />

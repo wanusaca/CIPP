@@ -98,6 +98,7 @@ const EditGroup = () => {
             }
             return null;
           })(),
+          securityEnabled: group.securityEnabled,
           // Initialize empty arrays for add/remove actions
           AddMember: [],
           RemoveMember: [],
@@ -112,6 +113,7 @@ const EditGroup = () => {
           allowExternal: groupInfo?.data?.allowExternal,
           sendCopies: groupInfo?.data?.sendCopies,
           hideFromOutlookClients: groupInfo?.data?.hideFromOutlookClients,
+          securityEnabled: group.securityEnabled,
         });
 
         // Reset the form with all values
@@ -125,7 +127,12 @@ const EditGroup = () => {
     const cleanedData = { ...formData };
 
     // Properties that should only be sent if they've changed from initial values
-    const changeDetectionProperties = ["allowExternal", "sendCopies", "hideFromOutlookClients"];
+    const changeDetectionProperties = [
+      "allowExternal",
+      "sendCopies",
+      "hideFromOutlookClients",
+      "securityEnabled",
+    ];
 
     changeDetectionProperties.forEach((property) => {
       if (formData[property] === initialValues[property]) {
@@ -161,7 +168,8 @@ const EditGroup = () => {
       >
         {groupInfo.isSuccess && groupInfo.data?.groupInfo?.onPremisesSyncEnabled && (
           <Alert severity="error" sx={{ mb: 1 }}>
-            This group is synced from on-premises Active Directory. Changes should be made in the on-premises environment instead.
+            This group is synced from on-premises Active Directory. Changes should be made in the
+            on-premises environment instead.
           </Alert>
         )}
         {showMembershipTable ? (
@@ -240,6 +248,14 @@ const EditGroup = () => {
                   multiple={true}
                   isFetching={groupInfo.isFetching}
                   disabled={groupInfo.isFetching}
+                  addedField={{
+                    id: "id",
+                    displayName: "displayName",
+                    userPrincipalName: "userPrincipalName",
+                  }}
+                  dataFilter={(option) =>
+                    !groupInfo.data?.members?.some((m) => m.id === option.value)
+                  }
                 />
               </Grid>
 
@@ -251,6 +267,14 @@ const EditGroup = () => {
                   multiple={true}
                   isFetching={groupInfo.isFetching}
                   disabled={groupInfo.isFetching}
+                  addedField={{
+                    id: "id",
+                    displayName: "displayName",
+                    userPrincipalName: "userPrincipalName",
+                  }}
+                  dataFilter={(option) =>
+                    !groupInfo.data?.owners?.some((o) => o.id === option.value)
+                  }
                 />
               </Grid>
 
@@ -267,6 +291,11 @@ const EditGroup = () => {
                   }}
                   isFetching={groupInfo.isFetching}
                   disabled={groupInfo.isFetching}
+                  dataFilter={(option) =>
+                    !groupInfo.data?.members
+                      ?.filter((m) => m?.["@odata.type"] === "#microsoft.graph.orgContact")
+                      ?.some((c) => c.id === option.value)
+                  }
                 />
               </Grid>
 
@@ -289,8 +318,12 @@ const EditGroup = () => {
                       ?.filter((m) => m?.["@odata.type"] !== "#microsoft.graph.orgContact")
                       ?.map((m) => ({
                         label: `${m.displayName} (${m.userPrincipalName})`,
-                        value: m.userPrincipalName,
-                        addedFields: { id: m.id },
+                        value: m.id,
+                        addedFields: {
+                          userPrincipalName: m.userPrincipalName,
+                          displayName: m.displayName,
+                          id: m.id,
+                        },
                       })) || []
                   }
                 />
@@ -308,8 +341,12 @@ const EditGroup = () => {
                   options={
                     groupInfo.data?.owners?.map((o) => ({
                       label: `${o.displayName} (${o.userPrincipalName})`,
-                      value: o.userPrincipalName,
-                      addedFields: { id: o.id },
+                      value: o.id,
+                      addedFields: {
+                        userPrincipalName: o.userPrincipalName,
+                        displayName: o.displayName,
+                        id: o.id,
+                      },
                     })) || []
                   }
                 />
@@ -372,6 +409,18 @@ const EditGroup = () => {
                     type="switch"
                     label="Hide group mailbox from Outlook"
                     name="hideFromOutlookClients"
+                    formControl={formControl}
+                    isFetching={groupInfo.isFetching}
+                    disabled={groupInfo.isFetching}
+                  />
+                </Grid>
+              )}
+              {groupType === "Microsoft 365" && (
+                <Grid size={{ xs: 12 }}>
+                  <CippFormComponent
+                    type="switch"
+                    label="Security Enabled"
+                    name="securityEnabled"
                     formControl={formControl}
                     isFetching={groupInfo.isFetching}
                     disabled={groupInfo.isFetching}

@@ -204,11 +204,11 @@ export const CippFormComponent = (props) => {
             <Controller
               name={convertedName}
               control={formControl.control}
-              defaultValue={defaultValue}
+              defaultValue={defaultValue || false}
               render={({ field }) =>
                 renderSwitchWithLabel(
                   <Switch
-                    checked={field.value}
+                    checked={Boolean(field.value)}
                     {...other}
                     {...formControl.register(convertedName, { ...validators })}
                   />
@@ -374,6 +374,7 @@ export const CippFormComponent = (props) => {
                     <Typography variant="subtitle2">{label}</Typography>
                     <RichTextEditor
                       {...other}
+                      immediatelyRender={false}
                       ref={ref}
                       extensions={[StarterKit]}
                       content=""
@@ -478,6 +479,12 @@ export const CippFormComponent = (props) => {
                   <Box sx={{ flexGrow: 1 }}>
                     <DateTimePicker
                       slotProps={{ textField: { fullWidth: true } }}
+                      sx={{
+                        "& .MuiPickersSectionList-root": {
+                          paddingTop: "10px",
+                          paddingBottom: "10px",
+                        },
+                      }}
                       views={
                         other.dateTimeType === "date"
                           ? ["year", "month", "day"]

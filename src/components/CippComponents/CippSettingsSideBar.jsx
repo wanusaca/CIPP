@@ -33,16 +33,17 @@ export const CippSettingsSideBar = (props) => {
   // Set the correct default value once we have the initial user type and current user data
   useEffect(() => {
     if (initialUserType && currentUser.data?.clientPrincipal?.userDetails) {
-      const defaultUserOption = initialUserType === "currentUser" 
-        ? {
-            label: "Current User",
-            value: currentUser.data.clientPrincipal.userDetails,
-          }
-        : {
-            label: "All Users",
-            value: "allUsers"
-          };
-      
+      const defaultUserOption =
+        initialUserType === "currentUser"
+          ? {
+              label: "Current User",
+              value: currentUser.data.clientPrincipal.userDetails,
+            }
+          : {
+              label: "All Users",
+              value: "allUsers",
+            };
+
       // Only set if not already set to avoid infinite loops
       const currentUserValue = formcontrol.getValues("user");
       if (!currentUserValue || currentUserValue.value !== defaultUserOption.value) {
@@ -60,6 +61,9 @@ export const CippSettingsSideBar = (props) => {
       usageLocation: formValues.usageLocation,
       tablePageSize: formValues.tablePageSize,
       userAttributes: formValues.userAttributes,
+
+      // Table Filter Preferences
+      persistFilters: formValues.persistFilters,
 
       // Portal Links Configuration
       portalLinks: {
@@ -92,6 +96,7 @@ export const CippSettingsSideBar = (props) => {
         RemoveMobile: formValues.offboardingDefaults?.RemoveMobile,
         DisableSignIn: formValues.offboardingDefaults?.DisableSignIn,
         RemoveMFADevices: formValues.offboardingDefaults?.RemoveMFADevices,
+        RemoveTeamsPhoneDID: formValues.offboardingDefaults?.RemoveTeamsPhoneDID,
         ClearImmutableId: formValues.offboardingDefaults?.ClearImmutableId,
       },
     };
@@ -108,15 +113,15 @@ export const CippSettingsSideBar = (props) => {
     if (!currentUser.data?.clientPrincipal?.userDetails) {
       return [];
     }
-    
+
     return [
-      { 
-        label: "Current User", 
-        value: currentUser.data.clientPrincipal.userDetails 
+      {
+        label: "Current User",
+        value: currentUser.data.clientPrincipal.userDetails,
       },
-      { 
-        label: "All Users", 
-        value: "allUsers" 
+      {
+        label: "All Users",
+        value: "allUsers",
       },
     ];
   };

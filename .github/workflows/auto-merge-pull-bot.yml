@@ -6,7 +6,7 @@ on:
 
 jobs:
   auto-merge:
-    if: github.actor == 'pull[bot]'
+    if: github.event.pull_request.user.login == 'pull[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write

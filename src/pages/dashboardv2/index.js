@@ -8,8 +8,18 @@ import {
   Avatar,
   Divider,
   Tooltip,
+  Autocomplete,
+  TextField,
+  Button,
+  Skeleton,
 } from "@mui/material";
+import { useState, useEffect } from "react";
 import { Grid } from "@mui/system";
+import { useSettings } from "/src/hooks/use-settings";
+import { ApiGetCall } from "/src/api/ApiCall.jsx";
+import Portals from "/src/data/portals";
+import { BulkActionsMenu } from "/src/components/bulk-actions-menu.js";
+import { ExecutiveReportButton } from "/src/components/ExecutiveReportButton.js";
 import {
   BarChart,
   Bar,
@@ -34,6 +44,9 @@ import { CaDeviceSankey } from "/src/components/CippComponents/CaDeviceSankey";
 import { AuthMethodSankey } from "/src/components/CippComponents/AuthMethodSankey";
 import { DesktopDevicesSankey } from "/src/components/CippComponents/DesktopDevicesSankey";
 import { MobileSankey } from "/src/components/CippComponents/MobileSankey";
+import { CippUniversalSearch } from "/src/components/CippCards/CippUniversalSearch.jsx";
+import { CippCopyToClipBoard } from "/src/components/CippComponents/CippCopyToClipboard.jsx";
+import { CippTimeAgo } from "/src/components/CippComponents/CippTimeAgo.jsx";
 import {
   People as UsersIcon,
   Person as UserIcon,
@@ -50,7 +63,105 @@ import {
 } from "@mui/icons-material";
 
 const Page = () => {
-  const reportData = dashboardDemoData;
+  const settings = useSettings();
+  const { currentTenant } = settings;
+  const [portalMenuItems, setPortalMenuItems] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
+
+  const reportOptions = [
+    "Select a report",
+    "Executive Summary Report",
+    "Security Assessment Report",
+    "Compliance Report",
+    "Device Inventory Report",
+  ];
+
+  const organization = ApiGetCall({
+    url: "/api/ListOrg",
+    queryKey: `${currentTenant}-ListOrg`,
+    data: { tenantFilter: currentTenant },
+  });
+
+  const testsApi = ApiGetCall({
+    url: "/api/ListTests",
+    data: { tenantFilter: currentTenant, reportId: "d5d1e123-bce0-482d-971f-be6ed820dd92" },
+    queryKey: `${currentTenant}-ListTests-d5d1e123-bce0-482d-971f-be6ed820dd92`,
+  });
+
+  const driftApi = ApiGetCall({
+    url: "/api/listTenantDrift",
+    data: {
+      TenantFilter: currentTenant,
+    },
+    queryKey: `TenantDrift-${currentTenant}`,
+  });
+
+  const currentTenantInfo = ApiGetCall({
+    url: "/api/ListTenants",
+    queryKey: `ListTenants`,
+  });
+
+  const reportData =
+    testsApi.isSuccess && testsApi.data?.TenantCounts
+      ? {
+          ExecutedAt: testsApi.data.LatestReportTimeStamp || new Date().toISOString(),
+          TenantName: organization.data?.displayName || "",
+          Domain: currentTenant || "",
+          TestResultSummary: {
+            IdentityPassed: testsApi.data.TestCounts?.Successful || 0,
+            IdentityTotal: testsApi.data.TestCounts?.Total || 0,
+            DevicesPassed: testsApi.data.TestCounts?.Successful || 0,
+            DevicesTotal: testsApi.data.TestCounts?.Total || 0,
+            DataPassed: 0,
+            DataTotal: 0,
+          },
+          TenantInfo: {
+            TenantOverview: {
+              UserCount: testsApi.data.TenantCounts.Users || 0,
+              GuestCount: testsApi.data.TenantCounts.Guests || 0,
+              GroupCount: testsApi.data.TenantCounts.Groups || 0,
+              ApplicationCount: testsApi.data.TenantCounts.ServicePrincipals || 0,
+              DeviceCount: testsApi.data.TenantCounts.Devices || 0,
+              ManagedDeviceCount: testsApi.data.TenantCounts.ManagedDevices || 0,
+            },
+            OverviewCaMfaAllUsers: dashboardDemoData.TenantInfo.OverviewCaMfaAllUsers,
+            OverviewCaDevicesAllUsers: dashboardDemoData.TenantInfo.OverviewCaDevicesAllUsers,
+            OverviewAuthMethodsPrivilegedUsers:
+              dashboardDemoData.TenantInfo.OverviewAuthMethodsPrivilegedUsers,
+            OverviewAuthMethodsAllUsers: dashboardDemoData.TenantInfo.OverviewAuthMethodsAllUsers,
+            DeviceOverview: dashboardDemoData.TenantInfo.DeviceOverview,
+          },
+        }
+      : dashboardDemoData;
+
+  useEffect(() => {
+    if (currentTenantInfo.isSuccess) {
+      const menuItems = Portals.map((portal) => ({
+        label: portal.label,
+        link: portal.url
+          .replace(
+            "%%tenantid%%",
+            currentTenantInfo.data
+              ?.find((tenant) => tenant.defaultDomainName === currentTenant)
+              ?.customerId?.toLowerCase()
+          )
+          .replace(
+            "%%customername%%",
+            currentTenantInfo.data?.find((tenant) => tenant.defaultDomainName === currentTenant)
+              ?.displayName
+          ),
+        external: portal.external,
+        target: settings.UserSpecificSettings?.portalLinks || portal.target,
+        icon: portal.icon,
+      }));
+      setPortalMenuItems(menuItems);
+    }
+  }, [
+    currentTenantInfo.isSuccess,
+    currentTenant,
+    settings.portalLinks,
+    settings.UserSpecificSettings,
+  ]);
 
   const formatNumber = (num) => {
     if (!num && num !== 0) return "0";
@@ -64,7 +175,7 @@ const Page = () => {
     users: "Total number of users in your tenant",
     guests: "External users with guest access",
     groups: "Microsoft 365 and security groups",
-    apps: "Registered applications",
+    apps: "Service principals in your tenant",
     devices: "All devices accessing tenant resources",
     managed: "Devices enrolled in Intune",
   };
@@ -72,6 +183,69 @@ const Page = () => {
   return (
     <Container maxWidth={false} sx={{ mt: 12, mb: 6 }}>
       <Box sx={{ width: "100%", mx: "auto" }}>
+        {/* Dashboard Bar with Portals, Executive Report, and Universal Search */}
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ height: "100%" }}>
+              <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 2 }}>
+                <BulkActionsMenu
+                  buttonName="Portals"
+                  actions={portalMenuItems}
+                  disabled={!currentTenantInfo.isSuccess || portalMenuItems.length === 0}
+                />
+                <ExecutiveReportButton
+                  tenantName={organization.data?.displayName}
+                  tenantId={organization.data?.id}
+                  userStats={{
+                    licensedUsers: 0,
+                    unlicensedUsers: 0,
+                    guests: testsApi.data?.TenantCounts?.Guests || 0,
+                    globalAdmins: 0,
+                  }}
+                  standardsData={driftApi.data}
+                  organizationData={organization.data}
+                  disabled={organization.isFetching || testsApi.isFetching}
+                />
+                <Box sx={{ flex: 1 }}>
+                  <CippUniversalSearch />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card sx={{ height: "100%" }}>
+              <CardContent sx={{ display: "flex", gap: 1.5, alignItems: "center", p: 2 }}>
+                <Autocomplete
+                  size="small"
+                  options={reportOptions}
+                  value={selectedReport}
+                  onChange={(event, newValue) => setSelectedReport(newValue)}
+                  sx={{ flex: 1 }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Select a report" placeholder="Choose a report" />
+                  )}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  sx={{ whiteSpace: "nowrap", minHeight: 40 }}
+                >
+                  Create custom report
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  sx={{ minHeight: 40 }}
+                  disabled={!selectedReport || selectedReport === "Select a report"}
+                >
+                  Delete
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
         {/* Tenant Overview Section - 3 Column Layout */}
         <Grid container spacing={3} sx={{ mb: 6 }}>
           {/* Column 1: Tenant Information */}
@@ -93,24 +267,53 @@ const Page = () => {
                       Name
                     </Typography>
                     <Typography variant="body1" fontWeight={500}>
-                      {reportData.TenantName || "Not Available"}
+                      {organization.isFetching
+                        ? "Loading..."
+                        : organization.data?.displayName || "Not Available"}
                     </Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Tenant ID
                     </Typography>
-                    <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
-                      {reportData.TenantId || "Not Available"}
-                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      {organization.isFetching ? (
+                        <Typography variant="body2" fontSize="0.75rem">
+                          Loading...
+                        </Typography>
+                      ) : organization.data?.id ? (
+                        <CippCopyToClipBoard text={organization.data.id} type="chip" />
+                      ) : (
+                        <Typography variant="body2" fontSize="0.75rem">
+                          Not Available
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">
                       Primary Domain
                     </Typography>
-                    <Typography variant="body1" fontWeight={500}>
-                      {reportData.Domain || "Not Available"}
-                    </Typography>
+                    <Box sx={{ mt: 0.5 }}>
+                      {organization.isFetching ? (
+                        <Typography variant="body2" fontSize="0.75rem">
+                          Loading...
+                        </Typography>
+                      ) : organization.data?.verifiedDomains?.find((d) => d.isDefault)?.name ||
+                        currentTenant ? (
+                        <CippCopyToClipBoard
+                          text={
+                            organization.data?.verifiedDomains?.find((d) => d.isDefault)?.name ||
+                            currentTenant
+                          }
+                          type="chip"
+                        />
+                      ) : (
+                        <Typography variant="body2" fontSize="0.75rem">
+                          Not Available
+                        </Typography>
+                      )}
+                    </Box>
                   </Box>
                 </Box>
               </CardContent>
@@ -121,7 +324,10 @@ const Page = () => {
           <Grid size={{ xs: 12, lg: 4 }}>
             <Grid container spacing={2}>
               <Grid size={{ xs: 6 }}>
-                <Tooltip title={metricDescriptions.users} arrow>
+                <Tooltip
+                  title={`${reportData.TenantInfo.TenantOverview.UserCount.toLocaleString()} users`}
+                  arrow
+                >
                   <Box
                     sx={{
                       display: "flex",
@@ -133,22 +339,36 @@ const Page = () => {
                       borderRadius: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: "primary.main", width: 34, height: 34 }}>
-                      <UserIcon sx={{ fontSize: 24 }} />
+                    <Avatar
+                      sx={{
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        width: 34,
+                        height: 34,
+                      }}
+                    >
+                      <UserIcon sx={{ fontSize: 24, color: "inherit" }} />
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
                         Users
                       </Typography>
                       <Typography variant="h6" fontSize="1.125rem">
-                        {formatNumber(reportData.TenantInfo.TenantOverview.UserCount)}
+                        {testsApi.isFetching ? (
+                          <Skeleton width={50} />
+                        ) : (
+                          formatNumber(reportData.TenantInfo.TenantOverview.UserCount)
+                        )}
                       </Typography>
                     </Box>
                   </Box>
                 </Tooltip>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Tooltip title={metricDescriptions.guests} arrow>
+                <Tooltip
+                  title={`${reportData.TenantInfo.TenantOverview.GuestCount.toLocaleString()} guests`}
+                  arrow
+                >
                   <Box
                     sx={{
                       display: "flex",
@@ -160,22 +380,36 @@ const Page = () => {
                       borderRadius: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: "info.main", width: 34, height: 34 }}>
-                      <GuestIcon sx={{ fontSize: 24 }} />
+                    <Avatar
+                      sx={{
+                        bgcolor: "info.main",
+                        color: "info.contrastText",
+                        width: 34,
+                        height: 34,
+                      }}
+                    >
+                      <GuestIcon sx={{ fontSize: 24, color: "inherit" }} />
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
                         Guests
                       </Typography>
                       <Typography variant="h6" fontSize="1.125rem">
-                        {formatNumber(reportData.TenantInfo.TenantOverview.GuestCount)}
+                        {testsApi.isFetching ? (
+                          <Skeleton width={50} />
+                        ) : (
+                          formatNumber(reportData.TenantInfo.TenantOverview.GuestCount)
+                        )}
                       </Typography>
                     </Box>
                   </Box>
                 </Tooltip>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Tooltip title={metricDescriptions.groups} arrow>
+                <Tooltip
+                  title={`${reportData.TenantInfo.TenantOverview.GroupCount.toLocaleString()} groups`}
+                  arrow
+                >
                   <Box
                     sx={{
                       display: "flex",
@@ -187,22 +421,36 @@ const Page = () => {
                       borderRadius: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: "secondary.main", width: 34, height: 34 }}>
-                      <GroupIcon sx={{ fontSize: 24 }} />
+                    <Avatar
+                      sx={{
+                        bgcolor: "secondary.main",
+                        color: "secondary.contrastText",
+                        width: 34,
+                        height: 34,
+                      }}
+                    >
+                      <GroupIcon sx={{ fontSize: 24, color: "inherit" }} />
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
                         Groups
                       </Typography>
                       <Typography variant="h6" fontSize="1.125rem">
-                        {formatNumber(reportData.TenantInfo.TenantOverview.GroupCount)}
+                        {testsApi.isFetching ? (
+                          <Skeleton width={50} />
+                        ) : (
+                          formatNumber(reportData.TenantInfo.TenantOverview.GroupCount)
+                        )}
                       </Typography>
                     </Box>
                   </Box>
                 </Tooltip>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Tooltip title={metricDescriptions.apps} arrow>
+                <Tooltip
+                  title={`${reportData.TenantInfo.TenantOverview.ApplicationCount.toLocaleString()} service principals`}
+                  arrow
+                >
                   <Box
                     sx={{
                       display: "flex",
@@ -214,22 +462,36 @@ const Page = () => {
                       borderRadius: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: "error.main", width: 34, height: 34 }}>
-                      <AppsIcon sx={{ fontSize: 24 }} />
+                    <Avatar
+                      sx={{
+                        bgcolor: "error.main",
+                        color: "error.contrastText",
+                        width: 34,
+                        height: 34,
+                      }}
+                    >
+                      <AppsIcon sx={{ fontSize: 24, color: "inherit" }} />
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
-                        Apps
+                        Service Principals
                       </Typography>
                       <Typography variant="h6" fontSize="1.125rem">
-                        {formatNumber(reportData.TenantInfo.TenantOverview.ApplicationCount)}
+                        {testsApi.isFetching ? (
+                          <Skeleton width={50} />
+                        ) : (
+                          formatNumber(reportData.TenantInfo.TenantOverview.ApplicationCount)
+                        )}
                       </Typography>
                     </Box>
                   </Box>
                 </Tooltip>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Tooltip title={metricDescriptions.devices} arrow>
+                <Tooltip
+                  title={`${reportData.TenantInfo.TenantOverview.DeviceCount.toLocaleString()} devices`}
+                  arrow
+                >
                   <Box
                     sx={{
                       display: "flex",
@@ -241,22 +503,36 @@ const Page = () => {
                       borderRadius: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: "warning.main", width: 34, height: 34 }}>
-                      <DevicesIcon sx={{ fontSize: 24 }} />
+                    <Avatar
+                      sx={{
+                        bgcolor: "warning.main",
+                        color: "warning.contrastText",
+                        width: 34,
+                        height: 34,
+                      }}
+                    >
+                      <DevicesIcon sx={{ fontSize: 24, color: "inherit" }} />
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
                         Devices
                       </Typography>
                       <Typography variant="h6" fontSize="1.125rem">
-                        {formatNumber(reportData.TenantInfo.TenantOverview.DeviceCount)}
+                        {testsApi.isFetching ? (
+                          <Skeleton width={50} />
+                        ) : (
+                          formatNumber(reportData.TenantInfo.TenantOverview.DeviceCount)
+                        )}
                       </Typography>
                     </Box>
                   </Box>
                 </Tooltip>
               </Grid>
               <Grid size={{ xs: 6 }}>
-                <Tooltip title={metricDescriptions.managed} arrow>
+                <Tooltip
+                  title={`${reportData.TenantInfo.TenantOverview.ManagedDeviceCount.toLocaleString()} managed devices`}
+                  arrow
+                >
                   <Box
                     sx={{
                       display: "flex",
@@ -268,15 +544,26 @@ const Page = () => {
                       borderRadius: 1,
                     }}
                   >
-                    <Avatar sx={{ bgcolor: "success.main", width: 34, height: 34 }}>
-                      <ManagedIcon sx={{ fontSize: 24 }} />
+                    <Avatar
+                      sx={{
+                        bgcolor: "success.main",
+                        color: "success.contrastText",
+                        width: 34,
+                        height: 34,
+                      }}
+                    >
+                      <ManagedIcon sx={{ fontSize: 24, color: "inherit" }} />
                     </Avatar>
                     <Box>
                       <Typography variant="caption" color="text.secondary" fontSize="0.7rem">
                         Managed
                       </Typography>
                       <Typography variant="h6" fontSize="1.125rem">
-                        {formatNumber(reportData.TenantInfo.TenantOverview.ManagedDeviceCount)}
+                        {testsApi.isFetching ? (
+                          <Skeleton width={50} />
+                        ) : (
+                          formatNumber(reportData.TenantInfo.TenantOverview.ManagedDeviceCount)
+                        )}
                       </Typography>
                     </Box>
                   </Box>
@@ -305,33 +592,59 @@ const Page = () => {
                         Identity
                       </Typography>
                       <Typography variant="h5" fontWeight="bold">
-                        {reportData.TestResultSummary.IdentityPassed}/
-                        {reportData.TestResultSummary.IdentityTotal}
-                        <Typography
-                          component="span"
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ ml: 1 }}
-                        >
-                          tests
-                        </Typography>
+                        {testsApi.isFetching ? (
+                          <Skeleton width={80} />
+                        ) : (
+                          <>
+                            {reportData.TestResultSummary.IdentityPassed}/
+                            {reportData.TestResultSummary.IdentityTotal}
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ ml: 1 }}
+                            >
+                              tests
+                            </Typography>
+                          </>
+                        )}
                       </Typography>
                     </Box>
-                    <Box>
+                    <Box sx={{ mb: 2 }}>
                       <Typography variant="caption" color="text.secondary">
                         Devices
                       </Typography>
                       <Typography variant="h5" fontWeight="bold">
-                        {reportData.TestResultSummary.DevicesPassed}/
-                        {reportData.TestResultSummary.DevicesTotal}
-                        <Typography
-                          component="span"
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ ml: 1 }}
-                        >
-                          tests
-                        </Typography>
+                        {testsApi.isFetching ? (
+                          <Skeleton width={80} />
+                        ) : (
+                          <>
+                            {reportData.TestResultSummary.DevicesPassed}/
+                            {reportData.TestResultSummary.DevicesTotal}
+                            <Typography
+                              component="span"
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ ml: 1 }}
+                            >
+                              tests
+                            </Typography>
+                          </>
+                        )}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Last Data Collection
+                      </Typography>
+                      <Typography variant="body2" fontSize="0.75rem">
+                        {testsApi.isFetching ? (
+                          <Skeleton width={100} />
+                        ) : testsApi.data?.LatestReportTimeStamp ? (
+                          <CippTimeAgo data={testsApi.data.LatestReportTimeStamp} />
+                        ) : (
+                          "Not Available"
+                        )}
                       </Typography>
                     </Box>
                   </Box>

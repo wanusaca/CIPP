@@ -1,4 +1,3 @@
-import React from "react";
 import { Card, CardHeader, CardContent, Box, Typography, Skeleton } from "@mui/material";
 import { Security as SecurityIcon } from "@mui/icons-material";
 import { ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis } from "recharts";
@@ -10,7 +9,6 @@ export const AssessmentCard = ({ data, isLoading }) => {
   const identityTotal = data?.TestResultSummary?.IdentityTotal || 1;
   const devicesPassed = data?.TestResultSummary?.DevicesPassed || 0;
   const devicesTotal = data?.TestResultSummary?.DevicesTotal || 1;
-  const latestReportTimeStamp = data?.ExecutedAt;
 
   // Calculate percentages for the radial chart
   const devicesPercentage = (devicesPassed / devicesTotal) * 100;
@@ -92,8 +90,8 @@ export const AssessmentCard = ({ data, isLoading }) => {
               <Typography variant="body2" fontSize="0.75rem">
                 {isLoading ? (
                   <Skeleton width={100} />
-                ) : latestReportTimeStamp ? (
-                  <CippTimeAgo data={latestReportTimeStamp} />
+                ) : data?.ExecutedAt ? (
+                  <CippTimeAgo data={data?.ExecutedAt} />
                 ) : (
                   "Not Available"
                 )}

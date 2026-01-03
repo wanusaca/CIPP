@@ -5,9 +5,7 @@ import {
   CardHeader,
   Container,
   Typography,
-  Avatar,
   Divider,
-  Tooltip,
   Button,
   Skeleton,
 } from "@mui/material";
@@ -25,9 +23,6 @@ import {
   Bar,
   PieChart,
   Pie,
-  RadialBarChart,
-  RadialBar,
-  PolarAngleAxis,
   XAxis,
   YAxis,
   ResponsiveContainer,
@@ -45,16 +40,15 @@ import { LicenseCard } from "/src/components/CippComponents/LicenseCard";
 import { TenantInfoCard } from "/src/components/CippComponents/TenantInfoCard";
 import { TenantMetricsGrid } from "/src/components/CippComponents/TenantMetricsGrid";
 import { AssessmentCard } from "/src/components/CippComponents/AssessmentCard";
-import { CippUniversalSearch } from "/src/components/CippCards/CippUniversalSearch.jsx";
 import { CippApiDialog } from "/src/components/CippComponents/CippApiDialog";
 import { CippAddTestReportDrawer } from "/src/components/CippComponents/CippAddTestReportDrawer";
-import { CippTimeAgo } from "/src/components/CippComponents/CippTimeAgo.jsx";
 import CippFormComponent from "/src/components/CippComponents/CippFormComponent";
 import {
   Devices as DevicesIcon,
-  Security as SecurityIcon,
   CheckCircle as CheckCircleIcon,
   Work as BriefcaseIcon,
+  Assessment as AssessmentIcon,
+  Refresh as RefreshIcon,
 } from "@mui/icons-material";
 
 const Page = () => {
@@ -63,6 +57,7 @@ const Page = () => {
   const { currentTenant } = settings;
   const [portalMenuItems, setPortalMenuItems] = useState([]);
   const [deleteDialog, setDeleteDialog] = useState({ open: false });
+  const [refreshDialog, setRefreshDialog] = useState({ open: false });
 
   // Get reportId from query params or default to "ztna"
   const selectedReport = router.query.reportId || "ztna";
@@ -115,7 +110,7 @@ const Page = () => {
   const driftApi = ApiGetCall({
     url: "/api/listTenantDrift",
     data: {
-      TenantFilter: currentTenant,
+      tenantFilter: currentTenant,
     },
     queryKey: `TenantDrift-${currentTenant}`,
   });
@@ -128,7 +123,7 @@ const Page = () => {
   const reportData =
     testsApi.isSuccess && testsApi.data?.TenantCounts
       ? {
-          ExecutedAt: testsApi.data.LatestReportTimeStamp || new Date().toISOString(),
+          ExecutedAt: testsApi.data?.LatestReportTimeStamp || null,
           TenantName: organization.data?.displayName || "",
           Domain: currentTenant || "",
           TestResultSummary: {
@@ -199,7 +194,7 @@ const Page = () => {
     <Container maxWidth={false} sx={{ mt: 12, mb: 6 }}>
       <Box sx={{ width: "100%", mx: "auto" }}>
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Card sx={{ height: "100%" }}>
               <CardContent sx={{ display: "flex", alignItems: "center", gap: 2, p: 2 }}>
                 <BulkActionsMenu
@@ -220,13 +215,23 @@ const Page = () => {
                   organizationData={organization.data}
                   disabled={organization.isFetching || testsApi.isFetching}
                 />
-                <Box sx={{ flex: 1 }}>
-                  <CippUniversalSearch />
-                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<AssessmentIcon />}
+                  sx={{
+                    fontWeight: "bold",
+                    textTransform: "none",
+                    borderRadius: 2,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  Report Builder
+                </Button>
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Card sx={{ height: "100%" }}>
               <CardContent sx={{ display: "flex", gap: 1.5, alignItems: "center", p: 2 }}>
                 <Box sx={{ flex: 1 }}>
@@ -246,10 +251,44 @@ const Page = () => {
                 </Box>
                 <CippAddTestReportDrawer />
                 <Button
-                  variant="outlined"
+                  variant="contained"
+                  color="primary"
+                  sx={{
+                    minWidth: "auto",
+                    fontWeight: "bold",
+                    textTransform: "none",
+                    borderRadius: 2,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    transition: "all 0.2s ease-in-out",
+                    px: 2,
+                  }}
+                  onClick={() => {
+                    setRefreshDialog({
+                      open: true,
+                      title: "Refresh Test Data",
+                      message: `Are you sure you want to refresh the test data for ${currentTenant}? This will start a new data collection job.`,
+                      api: {
+                        url: "/api/ExecTestRun",
+                        data: { tenantFilter: currentTenant },
+                        method: "POST",
+                      },
+                      handleClose: () => setRefreshDialog({ open: false }),
+                    });
+                  }}
+                  startIcon={<RefreshIcon />}
+                >
+                  Update Report
+                </Button>
+                <Button
+                  variant="contained"
                   color="error"
-                  size="small"
-                  sx={{ minHeight: 40 }}
+                  sx={{
+                    fontWeight: "bold",
+                    textTransform: "none",
+                    borderRadius: 2,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                    transition: "all 0.2s ease-in-out",
+                  }}
                   onClick={() => {
                     const report = reports.find((r) => r.id === selectedReport);
                     if (report && report.source !== "file") {
@@ -690,6 +729,20 @@ const Page = () => {
           },
           confirmText: "Are you sure you want to delete this report? This action cannot be undone.",
           relatedQueryKeys: ["ListTestReports"],
+        }}
+      />
+
+      {/* Refresh Data Dialog */}
+      <CippApiDialog
+        createDialog={refreshDialog}
+        title={refreshDialog.title}
+        fields={[]}
+        api={{
+          url: refreshDialog.api?.url,
+          type: "POST",
+          data: refreshDialog.api?.data,
+          confirmText: refreshDialog.message,
+          relatedQueryKeys: [`${currentTenant}-ListTests-${selectedReport}`],
         }}
       />
     </Container>

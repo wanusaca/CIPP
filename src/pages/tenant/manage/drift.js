@@ -88,6 +88,12 @@ const ManageDriftPage = () => {
     queryKey: "ListDriftTemplates",
   });
 
+  // API call to get all Intune templates for displayName lookup
+  const intuneTemplatesApi = ApiGetCall({
+    url: "/api/ListIntuneTemplates",
+    queryKey: "ListIntuneTemplates",
+  });
+
   // API call for standards comparison (when templateId is available)
   const comparisonApi = ApiGetCall({
     url: "/api/ListStandardsCompare",
@@ -138,51 +144,72 @@ const ManageDriftPage = () => {
       ) {
         const compliantStandards = item.driftSettings.ComparisonDetails.filter(
           (detail) => detail.Compliant === true
-        ).map((detail) => {
-          // Strip "standards." prefix if present
-          let standardName = detail.StandardName;
-          if (standardName.startsWith("standards.")) {
-            standardName = standardName.substring("standards.".length);
-          }
-
-          let displayName = null;
-
-          // For template types, extract the display name from standardSettings
-          if (standardName.startsWith("IntuneTemplate.")) {
-            const guid = standardName.substring("IntuneTemplate.".length);
-            const intuneTemplates = item.driftSettings?.standardSettings?.IntuneTemplate;
-            if (Array.isArray(intuneTemplates)) {
-              const template = intuneTemplates.find((t) => t.TemplateList?.value === guid);
-              if (template?.TemplateList?.label) {
-                displayName = template.TemplateList.label;
-              }
+        )
+          .map((detail) => {
+            // Strip "standards." prefix if present
+            let standardName = detail.StandardName;
+            if (standardName.startsWith("standards.")) {
+              standardName = standardName.substring("standards.".length);
             }
-          } else if (standardName.startsWith("ConditionalAccessTemplate.")) {
-            const guid = standardName.substring("ConditionalAccessTemplate.".length);
-            const caTemplates = item.driftSettings?.standardSettings?.ConditionalAccessTemplate;
-            if (Array.isArray(caTemplates)) {
-              const template = caTemplates.find((t) => t.TemplateList?.value === guid);
-              if (template?.TemplateList?.label) {
-                displayName = template.TemplateList.label;
-              }
-            }
-          } else {
-            // For non-template standards, keep the "standards." prefix for lookup
-            standardName = detail.StandardName;
-          }
 
-          return {
-            standardName: standardName,
-            standardDisplayName: displayName, // Set display name if found from templates
-            state: "aligned",
-            Status: "Aligned",
-            ComplianceStatus: detail.ComplianceStatus,
-            StandardValue: detail.StandardValue,
-            ReportingDisabled: detail.ReportingDisabled,
-            expectedValue: "Compliant with template",
-            receivedValue: detail.StandardValue,
-          };
-        });
+            let displayName = null;
+
+            // For template types, extract the display name from standardSettings
+            if (standardName.startsWith("IntuneTemplate.")) {
+              const guid = standardName.substring("IntuneTemplate.".length);
+
+              // First try to find in standardSettings
+              const intuneTemplates = item.driftSettings?.standardSettings?.IntuneTemplate;
+              if (Array.isArray(intuneTemplates)) {
+                const template = intuneTemplates.find((t) => t.TemplateList?.value === guid);
+                if (template?.TemplateList?.label) {
+                  displayName = template.TemplateList.label;
+                }
+              }
+
+              // If not found in standardSettings, look up in all Intune templates (for tag templates)
+              if (!displayName && intuneTemplatesApi.data) {
+                const template = intuneTemplatesApi.data.find((t) => t.GUID === guid);
+                if (template?.Displayname) {
+                  displayName = template.Displayname;
+                }
+              }
+
+              // If template not found, return null to filter it out later
+              if (!displayName) {
+                return null;
+              }
+            } else if (standardName.startsWith("ConditionalAccessTemplate.")) {
+              const guid = standardName.substring("ConditionalAccessTemplate.".length);
+              const caTemplates = item.driftSettings?.standardSettings?.ConditionalAccessTemplate;
+              if (Array.isArray(caTemplates)) {
+                const template = caTemplates.find((t) => t.TemplateList?.value === guid);
+                if (template?.TemplateList?.label) {
+                  displayName = template.TemplateList.label;
+                }
+              }
+              // If template not found, return null to filter it out later
+              if (!displayName) {
+                return null;
+              }
+            } else {
+              // For non-template standards, keep the "standards." prefix for lookup
+              standardName = detail.StandardName;
+            }
+
+            return {
+              standardName: standardName,
+              standardDisplayName: displayName, // Set display name if found from templates
+              state: "aligned",
+              Status: "Aligned",
+              ComplianceStatus: detail.ComplianceStatus,
+              StandardValue: detail.StandardValue,
+              ReportingDisabled: detail.ReportingDisabled,
+              expectedValue: "Compliant with template",
+              receivedValue: detail.StandardValue,
+            };
+          })
+          .filter((item) => item !== null); // Filter out null items where templates weren't found
         acc.alignedStandards.push(...compliantStandards);
       }
 
@@ -375,230 +402,245 @@ const ManageDriftPage = () => {
 
   // Helper function to create deviation items
   const createDeviationItems = (deviations, statusOverride = null) => {
-    return (deviations || []).map((deviation, index) => {
-      // Check if this should be skipped due to missing license
-      const isLicenseSkipped = deviation.LicenseAvailable === false;
-
-      // Check if we have both ExpectedValue and CurrentValue for comparison
-      let isActuallyCompliant = false;
-      let jsonDifferences = null;
-
-      if (deviation.ExpectedValue && deviation.CurrentValue) {
-        jsonDifferences = compareJsonObjects(deviation.ExpectedValue, deviation.CurrentValue);
-        // If there are no differences, this is actually compliant
-        if (jsonDifferences === null) {
-          isActuallyCompliant = true;
+    return (deviations || [])
+      .filter((deviation) => {
+        // Filter out template deviations where the template cannot be found
+        // (these will have null/undefined standardDisplayName)
+        if (
+          deviation.standardName &&
+          (deviation.standardName.startsWith("IntuneTemplate.") ||
+            deviation.standardName.startsWith("ConditionalAccessTemplate."))
+        ) {
+          // For templates, we must have a standardDisplayName
+          return !!deviation.standardDisplayName;
         }
-      }
+        // For non-template standards, always include
+        return true;
+      })
+      .map((deviation, index) => {
+        // Check if this should be skipped due to missing license
+        const isLicenseSkipped = deviation.LicenseAvailable === false;
 
-      // Prioritize standardDisplayName from drift data (which has user-friendly names for templates)
-      // then fallback to standards.json lookup, then raw name
-      const prettyName =
-        deviation.standardDisplayName ||
-        getStandardPrettyName(deviation.standardName) ||
-        deviation.standardName ||
-        "Unknown Standard";
+        // Check if we have both ExpectedValue and CurrentValue for comparison
+        let isActuallyCompliant = false;
+        let jsonDifferences = null;
 
-      // Get description from standards.json first, then fallback to standardDescription from deviation
-      const description =
-        getStandardDescription(deviation.standardName) ||
-        deviation.standardDescription ||
-        "No description available";
+        if (deviation.ExpectedValue && deviation.CurrentValue) {
+          jsonDifferences = compareJsonObjects(deviation.ExpectedValue, deviation.CurrentValue);
+          // If there are no differences, this is actually compliant
+          if (jsonDifferences === null) {
+            isActuallyCompliant = true;
+          }
+        }
 
-      // Determine the actual status
-      // If actually compliant (values match), mark as aligned regardless of input status
-      // If license is skipped, mark as skipped
-      // Otherwise use the provided status
-      const actualStatus = isActuallyCompliant
-        ? "aligned"
-        : isLicenseSkipped
-        ? "skipped"
-        : statusOverride || deviation.Status || deviation.state;
-      const actualStatusText = isActuallyCompliant
-        ? "Compliant"
-        : isLicenseSkipped
-        ? "Skipped - No License Available"
-        : getDeviationStatusText(actualStatus);
+        // Prioritize standardDisplayName from drift data (which has user-friendly names for templates)
+        // then fallback to standards.json lookup, then raw name
+        const prettyName =
+          deviation.standardDisplayName ||
+          getStandardPrettyName(deviation.standardName) ||
+          deviation.standardName ||
+          "Unknown Standard";
 
-      // For skipped items, show different expected/received values
-      let displayExpectedValue = deviation.ExpectedValue || deviation.expectedValue;
-      let displayReceivedValue = deviation.CurrentValue || deviation.receivedValue;
+        // Get description from standards.json first, then fallback to standardDescription from deviation
+        const description =
+          getStandardDescription(deviation.standardName) ||
+          deviation.standardDescription ||
+          "No description available";
 
-      // If we have JSON differences, show only the differences
-      if (jsonDifferences && !isLicenseSkipped && !isActuallyCompliant) {
-        displayExpectedValue = JSON.stringify(jsonDifferences, null, 2);
-        displayReceivedValue = "See differences in Expected column";
-      }
+        // Determine the actual status
+        // If actually compliant (values match), mark as aligned regardless of input status
+        // If license is skipped, mark as skipped
+        // Otherwise use the provided status
+        const actualStatus = isActuallyCompliant
+          ? "aligned"
+          : isLicenseSkipped
+          ? "skipped"
+          : statusOverride || deviation.Status || deviation.state;
+        const actualStatusText = isActuallyCompliant
+          ? "Compliant"
+          : isLicenseSkipped
+          ? "Skipped - No License Available"
+          : getDeviationStatusText(actualStatus);
 
-      return {
-        id: statusOverride ? `${statusOverride}-${index + 1}` : `current-${index + 1}`,
-        cardLabelBox: {
-          cardLabelBoxHeader: getDeviationIcon(actualStatus),
-        },
-        text: prettyName,
-        subtext: description,
-        statusColor: isLicenseSkipped ? "text.secondary" : getDeviationColor(actualStatus),
-        statusText: actualStatusText,
-        standardName: deviation.standardName, // Store the original standardName for action handlers
-        receivedValue: deviation.receivedValue, // Store the original receivedValue for action handlers
-        expectedValue: deviation.expectedValue, // Store the original expectedValue for action handlers
-        originalDeviation: deviation, // Store the complete original deviation object for reference
-        isLicenseSkipped: isLicenseSkipped, // Flag for filtering and disabling actions
-        isActuallyCompliant: isActuallyCompliant, // Flag to move to compliant section
-        children: (
-          <Stack spacing={2} sx={{ p: 2 }}>
-            {description && description !== "No description available" && (
-              <Typography variant="body2" color="text.secondary">
-                {description}
-              </Typography>
-            )}
+        // For skipped items, show different expected/received values
+        let displayExpectedValue = deviation.ExpectedValue || deviation.expectedValue;
+        let displayReceivedValue = deviation.CurrentValue || deviation.receivedValue;
 
-            {isLicenseSkipped && (
-              <Box
-                sx={{
-                  p: 1.5,
-                  bgcolor: "warning.lighter",
-                  borderRadius: 1,
-                  border: "1px solid",
-                  borderColor: "warning.main",
-                }}
-              >
-                <Typography variant="body2" color="warning.dark" sx={{ fontWeight: 600 }}>
-                  ⚠️ This standard was skipped because the required license is not available for
-                  this tenant.
+        // If we have JSON differences, show only the differences
+        if (jsonDifferences && !isLicenseSkipped && !isActuallyCompliant) {
+          displayExpectedValue = JSON.stringify(jsonDifferences, null, 2);
+          displayReceivedValue = "See differences in Expected column";
+        }
+
+        return {
+          id: statusOverride ? `${statusOverride}-${index + 1}` : `current-${index + 1}`,
+          cardLabelBox: {
+            cardLabelBoxHeader: getDeviationIcon(actualStatus),
+          },
+          text: prettyName,
+          subtext: description,
+          statusColor: isLicenseSkipped ? "text.secondary" : getDeviationColor(actualStatus),
+          statusText: actualStatusText,
+          standardName: deviation.standardName, // Store the original standardName for action handlers
+          receivedValue: deviation.receivedValue, // Store the original receivedValue for action handlers
+          expectedValue: deviation.expectedValue, // Store the original expectedValue for action handlers
+          originalDeviation: deviation, // Store the complete original deviation object for reference
+          isLicenseSkipped: isLicenseSkipped, // Flag for filtering and disabling actions
+          isActuallyCompliant: isActuallyCompliant, // Flag to move to compliant section
+          children: (
+            <Stack spacing={2} sx={{ p: 2 }}>
+              {description && description !== "No description available" && (
+                <Typography variant="body2" color="text.secondary">
+                  {description}
                 </Typography>
-              </Box>
-            )}
+              )}
 
-            {(displayExpectedValue && displayExpectedValue !== "Compliant with template") ||
-            displayReceivedValue ? (
-              <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", md: "row" } }}>
-                {displayExpectedValue && displayExpectedValue !== "Compliant with template" && (
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 600,
-                        color: "text.secondary",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      {jsonDifferences ? "Differences" : "Expected"}
-                    </Typography>
-                    <Box
-                      sx={{
-                        mt: 0.5,
-                        p: 1.5,
-                        bgcolor: isActuallyCompliant ? "success.lighter" : "action.hover",
-                        borderRadius: 1,
-                        border: "1px solid",
-                        borderColor: isActuallyCompliant ? "success.main" : "divider",
-                      }}
-                    >
+              {isLicenseSkipped && (
+                <Box
+                  sx={{
+                    p: 1.5,
+                    bgcolor: "warning.lighter",
+                    borderRadius: 1,
+                    border: "1px solid",
+                    borderColor: "warning.main",
+                  }}
+                >
+                  <Typography variant="body2" color="warning.dark" sx={{ fontWeight: 600 }}>
+                    ⚠️ This standard was skipped because the required license is not available for
+                    this tenant.
+                  </Typography>
+                </Box>
+              )}
+
+              {(displayExpectedValue && displayExpectedValue !== "Compliant with template") ||
+              displayReceivedValue ? (
+                <Box sx={{ display: "flex", gap: 2, flexDirection: { xs: "column", md: "row" } }}>
+                  {displayExpectedValue && displayExpectedValue !== "Compliant with template" && (
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography
-                        variant="body2"
+                        variant="caption"
                         sx={{
-                          fontFamily: "monospace",
-                          fontSize: "0.8125rem",
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
+                          fontWeight: 600,
+                          color: "text.secondary",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
                         }}
                       >
-                        {displayExpectedValue}
+                        {jsonDifferences ? "Differences" : "Expected"}
                       </Typography>
-                    </Box>
-                  </Box>
-                )}
-
-                {displayReceivedValue && !jsonDifferences && (
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 600,
-                        color: "text.secondary",
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}
-                    >
-                      Current
-                    </Typography>
-                    <Box
-                      sx={{
-                        mt: 0.5,
-                        p: 1.5,
-                        bgcolor: isActuallyCompliant ? "success.lighter" : "action.hover",
-                        borderRadius: 1,
-                        border: "1px solid",
-                        borderColor: isActuallyCompliant ? "success.main" : "divider",
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
+                      <Box
                         sx={{
-                          fontFamily: "monospace",
-                          fontSize: "0.8125rem",
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
+                          mt: 0.5,
+                          p: 1.5,
+                          bgcolor: isActuallyCompliant ? "success.lighter" : "action.hover",
+                          borderRadius: 1,
+                          border: "1px solid",
+                          borderColor: isActuallyCompliant ? "success.main" : "divider",
                         }}
                       >
-                        {displayReceivedValue}
-                      </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: "monospace",
+                            fontSize: "0.8125rem",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {displayExpectedValue}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                )}
-              </Box>
-            ) : null}
+                  )}
 
-            {(deviation.Reason ||
-              deviation.lastChangedByUser ||
-              processedDriftData.latestDataCollection) && (
-              <>
-                <Divider />
-                <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                  {deviation.Reason && (
-                    <Box sx={{ minWidth: 0 }}>
+                  {displayReceivedValue && !jsonDifferences && (
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography
                         variant="caption"
-                        sx={{ fontWeight: 600, color: "text.secondary" }}
+                        sx={{
+                          fontWeight: 600,
+                          color: "text.secondary",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                        }}
                       >
-                        Reason
+                        Current
                       </Typography>
-                      <Typography variant="body2">{deviation.Reason}</Typography>
-                    </Box>
-                  )}
-                  {deviation.lastChangedByUser && (
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{ fontWeight: 600, color: "text.secondary" }}
+                      <Box
+                        sx={{
+                          mt: 0.5,
+                          p: 1.5,
+                          bgcolor: isActuallyCompliant ? "success.lighter" : "action.hover",
+                          borderRadius: 1,
+                          border: "1px solid",
+                          borderColor: isActuallyCompliant ? "success.main" : "divider",
+                        }}
                       >
-                        Changed By
-                      </Typography>
-                      <Typography variant="body2">{deviation.lastChangedByUser}</Typography>
-                    </Box>
-                  )}
-                  {processedDriftData.latestDataCollection && (
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{ fontWeight: 600, color: "text.secondary" }}
-                      >
-                        Last Updated
-                      </Typography>
-                      <Typography variant="body2">
-                        {new Date(processedDriftData.latestDataCollection).toLocaleString()}
-                      </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: "monospace",
+                            fontSize: "0.8125rem",
+                            whiteSpace: "pre-wrap",
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {displayReceivedValue}
+                        </Typography>
+                      </Box>
                     </Box>
                   )}
                 </Box>
-              </>
-            )}
-          </Stack>
-        ),
-      };
-    });
+              ) : null}
+
+              {(deviation.Reason ||
+                deviation.lastChangedByUser ||
+                processedDriftData.latestDataCollection) && (
+                <>
+                  <Divider />
+                  <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                    {deviation.Reason && (
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 600, color: "text.secondary" }}
+                        >
+                          Reason
+                        </Typography>
+                        <Typography variant="body2">{deviation.Reason}</Typography>
+                      </Box>
+                    )}
+                    {deviation.lastChangedByUser && (
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 600, color: "text.secondary" }}
+                        >
+                          Changed By
+                        </Typography>
+                        <Typography variant="body2">{deviation.lastChangedByUser}</Typography>
+                      </Box>
+                    )}
+                    {processedDriftData.latestDataCollection && (
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          variant="caption"
+                          sx={{ fontWeight: 600, color: "text.secondary" }}
+                        >
+                          Last Updated
+                        </Typography>
+                        <Typography variant="body2">
+                          {new Date(processedDriftData.latestDataCollection).toLocaleString()}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </>
+              )}
+            </Stack>
+          ),
+        };
+      });
   };
 
   const deviationItems = createDeviationItems(processedDriftData.currentDeviations);

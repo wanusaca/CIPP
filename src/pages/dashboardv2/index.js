@@ -1,14 +1,4 @@
-import {
-  Box,
-  Card,
-  CardContent,
-  CardHeader,
-  Container,
-  Typography,
-  Divider,
-  Button,
-  Skeleton,
-} from "@mui/material";
+import { Box, Card, CardContent, Container, Button, Tooltip } from "@mui/material";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useForm, useWatch } from "react-hook-form";
@@ -18,17 +8,6 @@ import { ApiGetCall } from "/src/api/ApiCall.jsx";
 import Portals from "/src/data/portals";
 import { BulkActionsMenu } from "/src/components/bulk-actions-menu.js";
 import { ExecutiveReportButton } from "/src/components/ExecutiveReportButton.js";
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  LabelList,
-} from "recharts";
 import { TabbedLayout } from "/src/layouts/TabbedLayout";
 import { Layout as DashboardLayout } from "/src/layouts/index.js";
 import tabOptions from "./tabOptions";
@@ -119,14 +98,6 @@ const Page = () => {
     waiting: !!currentTenant && !!selectedReport,
   });
 
-  const driftApi = ApiGetCall({
-    url: "/api/listTenantDrift",
-    data: {
-      tenantFilter: currentTenant,
-    },
-    queryKey: `TenantDrift-${currentTenant}`,
-  });
-
   const currentTenantInfo = ApiGetCall({
     url: "/api/ListTenants",
     queryKey: `ListTenants`,
@@ -165,24 +136,51 @@ const Page = () => {
         }
       : dashboardDemoData;
 
+  // Function to filter portals based on user preferences
+  const getFilteredPortals = () => {
+    const defaultLinks = {
+      M365_Portal: true,
+      Exchange_Portal: true,
+      Entra_Portal: true,
+      Teams_Portal: true,
+      Azure_Portal: true,
+      Intune_Portal: true,
+      SharePoint_Admin: true,
+      Security_Portal: true,
+      Compliance_Portal: true,
+      Power_Platform_Portal: true,
+      Power_BI_Portal: true,
+    };
+
+    let portalLinks;
+    if (settings.UserSpecificSettings?.portalLinks) {
+      portalLinks = { ...defaultLinks, ...settings.UserSpecificSettings.portalLinks };
+    } else if (settings.portalLinks) {
+      portalLinks = { ...defaultLinks, ...settings.portalLinks };
+    } else {
+      portalLinks = defaultLinks;
+    }
+
+    // Filter the portals based on user settings
+    return Portals.filter((portal) => {
+      const settingKey = portal.name;
+      return settingKey ? portalLinks[settingKey] === true : true;
+    });
+  };
+
   useEffect(() => {
     if (currentTenantInfo.isSuccess) {
-      const menuItems = Portals.map((portal) => ({
+      const tenantLookup = currentTenantInfo.data?.find(
+        (tenant) => tenant.defaultDomainName === currentTenant
+      );
+
+      // Get filtered portals based on user preferences
+      const filteredPortals = getFilteredPortals();
+
+      const menuItems = filteredPortals.map((portal) => ({
         label: portal.label,
-        link: portal.url
-          .replace(
-            "%%tenantid%%",
-            currentTenantInfo.data
-              ?.find((tenant) => tenant.defaultDomainName === currentTenant)
-              ?.customerId?.toLowerCase()
-          )
-          .replace(
-            "%%customername%%",
-            currentTenantInfo.data?.find((tenant) => tenant.defaultDomainName === currentTenant)
-              ?.displayName
-          ),
-        external: portal.external,
-        target: settings.UserSpecificSettings?.portalLinks || portal.target,
+        target: "_blank",
+        link: portal.url.replace(portal.variable, tenantLookup?.[portal.variable]),
         icon: portal.icon,
       }));
       setPortalMenuItems(menuItems);
@@ -214,32 +212,25 @@ const Page = () => {
                   actions={portalMenuItems}
                   disabled={!currentTenantInfo.isSuccess || portalMenuItems.length === 0}
                 />
-                <ExecutiveReportButton
-                  tenantName={organization.data?.displayName}
-                  tenantId={organization.data?.id}
-                  userStats={{
-                    licensedUsers: 0,
-                    unlicensedUsers: 0,
-                    guests: testsApi.data?.TenantCounts?.Guests || 0,
-                    globalAdmins: 0,
-                  }}
-                  standardsData={driftApi.data}
-                  organizationData={organization.data}
-                  disabled={organization.isFetching || testsApi.isFetching}
-                />
-                <Button
-                  variant="contained"
-                  startIcon={<AssessmentIcon />}
-                  sx={{
-                    fontWeight: "bold",
-                    textTransform: "none",
-                    borderRadius: 2,
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                    transition: "all 0.2s ease-in-out",
-                  }}
-                >
-                  Report Builder
-                </Button>
+                <ExecutiveReportButton disabled={organization.isFetching} />
+                <Tooltip title="Coming soon!" arrow>
+                  <span>
+                    <Button
+                      variant="contained"
+                      startIcon={<AssessmentIcon />}
+                      disabled
+                      sx={{
+                        fontWeight: "bold",
+                        textTransform: "none",
+                        borderRadius: 2,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                        transition: "all 0.2s ease-in-out",
+                      }}
+                    >
+                      Report Builder
+                    </Button>
+                  </span>
+                </Tooltip>
               </CardContent>
             </Card>
           </Grid>
@@ -400,7 +391,7 @@ const Page = () => {
 };
 
 Page.getLayout = (page) => (
-  <DashboardLayout>
+  <DashboardLayout allTenantsSupport={false}>
     <TabbedLayout tabOptions={tabOptions}>{page}</TabbedLayout>
   </DashboardLayout>
 );

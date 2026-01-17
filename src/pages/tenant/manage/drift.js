@@ -921,139 +921,60 @@ const ManageDriftPage = () => {
 
   // Add action buttons to each deviation item
   const deviationItemsWithActions = actualDeviationItems.map((item) => {
-    // Check if this is a template that supports delete action
-    const supportsDelete =
-      (item.standardName?.includes("ConditionalAccessTemplate") ||
-        item.standardName?.includes("IntuneTemplate")) &&
-      item.expectedValue === "This policy only exists in the tenant, not in the template.";
-
     return {
       ...item,
-      actionButton: (
-        <>
-          <Button
-            variant="outlined"
-            endIcon={<ExpandMore />}
-            onClick={(e) => handleMenuClick(e, item.id)}
-            size="small"
-          >
-            Actions
-          </Button>
-          <Menu
-            anchorEl={anchorEl[item.id]}
-            open={Boolean(anchorEl[item.id])}
-            onClose={() => handleMenuClose(item.id)}
-          >
-            <MenuItem onClick={() => handleAction("accept-customer-specific", item.id)}>
-              <CheckCircle sx={{ mr: 1, color: "success.main" }} />
-              Accept Deviation - Customer Specific
-            </MenuItem>
-            <MenuItem onClick={() => handleAction("accept", item.id)}>
-              <Check sx={{ mr: 1, color: "info.main" }} />
-              Accept Deviation
-            </MenuItem>
-            {supportsDelete && (
-              <MenuItem onClick={() => handleAction("deny-delete", item.id)}>
-                <Block sx={{ mr: 1, color: "error.main" }} />
-                Deny Deviation - Delete Policy
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => handleAction("deny-remediate", item.id)}>
-              <Cancel sx={{ mr: 1, color: "error.main" }} />
-              Deny Deviation - Remediate to align with template
-            </MenuItem>
-          </Menu>
-        </>
+      cardLabelBoxActions: (
+        <Button
+          variant="outlined"
+          endIcon={<ExpandMore />}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMenuClick(e, item.id);
+          }}
+          size="small"
+        >
+          Actions
+        </Button>
       ),
     };
   });
 
   // Add action buttons to accepted deviation items
   const acceptedDeviationItemsWithActions = acceptedDeviationItems.map((item) => {
-    // Check if this is a template that supports delete action
-    const supportsDelete =
-      (item.standardName?.includes("ConditionalAccessTemplate") ||
-        item.standardName?.includes("IntuneTemplate")) &&
-      item.expectedValue === "This policy only exists in the tenant, not in the template.";
-
     return {
       ...item,
-      actionButton: (
-        <>
-          <Button
-            variant="outlined"
-            endIcon={<ExpandMore />}
-            onClick={(e) => handleMenuClick(e, `accepted-${item.id}`)}
-            size="small"
-          >
-            Actions
-          </Button>
-          <Menu
-            anchorEl={anchorEl[`accepted-${item.id}`]}
-            open={Boolean(anchorEl[`accepted-${item.id}`])}
-            onClose={() => handleMenuClose(`accepted-${item.id}`)}
-          >
-            {supportsDelete && (
-              <MenuItem onClick={() => handleDeviationAction("deny-delete", item)}>
-                <Block sx={{ mr: 1, color: "error.main" }} />
-                Deny - Delete Policy
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => handleDeviationAction("deny-remediate", item)}>
-              <Cancel sx={{ mr: 1, color: "error.main" }} />
-              Deny - Remediate to align with template
-            </MenuItem>
-            <MenuItem onClick={() => handleDeviationAction("accept-customer-specific", item)}>
-              <CheckCircle sx={{ mr: 1, color: "info.main" }} />
-              Accept - Customer Specific
-            </MenuItem>
-          </Menu>
-        </>
+      cardLabelBoxActions: (
+        <Button
+          variant="outlined"
+          endIcon={<ExpandMore />}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMenuClick(e, `accepted-${item.id}`);
+          }}
+          size="small"
+        >
+          Actions
+        </Button>
       ),
     };
   });
 
   // Add action buttons to customer specific deviation items
   const customerSpecificDeviationItemsWithActions = customerSpecificDeviationItems.map((item) => {
-    // Check if this is a template that supports delete action
-    const supportsDelete =
-      (item.standardName?.includes("ConditionalAccessTemplate") ||
-        item.standardName?.includes("IntuneTemplate")) &&
-      item.expectedValue === "This policy only exists in the tenant, not in the template.";
-
     return {
       ...item,
-      actionButton: (
-        <>
-          <Button
-            variant="outlined"
-            endIcon={<ExpandMore />}
-            onClick={(e) => handleMenuClick(e, `customer-${item.id}`)}
-            size="small"
-          >
-            Actions
-          </Button>
-          <Menu
-            anchorEl={anchorEl[`customer-${item.id}`]}
-            open={Boolean(anchorEl[`customer-${item.id}`])}
-            onClose={() => handleMenuClose(`customer-${item.id}`)}
-          >
-            {supportsDelete && (
-              <MenuItem onClick={() => handleDeviationAction("deny-delete", item)}>
-                <Block sx={{ mr: 1, color: "error.main" }} />
-                Deny - Delete
-              </MenuItem>
-            )}
-            <MenuItem onClick={() => handleDeviationAction("deny-remediate", item)}>
-              <Cancel sx={{ mr: 1, color: "error.main" }} />
-              Deny - Remediate to align with template
-            </MenuItem>
-            <MenuItem onClick={() => handleDeviationAction("accept", item)}>
-              <Check sx={{ mr: 1, color: "success.main" }} />
-              Accept
-            </MenuItem>
-          </Menu>
-        </>
+      cardLabelBoxActions: (
+        <Button
+          variant="outlined"
+          endIcon={<ExpandMore />}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMenuClick(e, `customer-${item.id}`);
+          }}
+          size="small"
+        >
+          Actions
+        </Button>
       ),
     };
   });
@@ -1061,35 +982,23 @@ const ManageDriftPage = () => {
   // Add action buttons to denied deviation items
   const deniedDeviationItemsWithActions = deniedDeviationItems.map((item) => ({
     ...item,
-    actionButton: (
-      <>
-        <Button
-          variant="outlined"
-          endIcon={<ExpandMore />}
-          onClick={(e) => handleMenuClick(e, `denied-${item.id}`)}
-          size="small"
-        >
-          Actions
-        </Button>
-        <Menu
-          anchorEl={anchorEl[`denied-${item.id}`]}
-          open={Boolean(anchorEl[`denied-${item.id}`])}
-          onClose={() => handleMenuClose(`denied-${item.id}`)}
-        >
-          <MenuItem onClick={() => handleDeviationAction("accept", item)}>
-            <Check sx={{ mr: 1, color: "success.main" }} />
-            Accept
-          </MenuItem>
-          <MenuItem onClick={() => handleDeviationAction("accept-customer-specific", item)}>
-            <CheckCircle sx={{ mr: 1, color: "info.main" }} />
-            Accept - Customer Specific
-          </MenuItem>
-        </Menu>
-      </>
+    cardLabelBoxActions: (
+      <Button
+        variant="outlined"
+        endIcon={<ExpandMore />}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleMenuClick(e, `denied-${item.id}`);
+        }}
+        size="small"
+      >
+        Actions
+      </Button>
     ),
   }));
 
   // Calculate compliance metrics for badges
+  // Accepted and Customer Specific deviations count as compliant since they are user-approved
   // Denied deviations are included in total but not in compliant count (they haven't been fixed yet)
   const totalPolicies =
     processedDriftData.alignedCount +
@@ -1098,10 +1007,20 @@ const ManageDriftPage = () => {
     processedDriftData.customerSpecificDeviations +
     processedDriftData.deniedDeviationsCount;
 
-  const compliancePercentage =
-    totalPolicies > 0 ? Math.round((processedDriftData.alignedCount / totalPolicies) * 100) : 0;
+  const compliantCount =
+    processedDriftData.alignedCount +
+    processedDriftData.acceptedDeviationsCount +
+    processedDriftData.customerSpecificDeviations;
 
-  const missingLicensePercentage = 0; // This would need to be calculated from actual license data
+  // Alignment Score: Only actual compliance (excluding license-missing items)
+  const compliancePercentage =
+    totalPolicies > 0 ? Math.round((compliantCount / totalPolicies) * 100) : 0;
+
+  // Calculate missing license percentage
+  const missingLicensePercentage =
+    totalPolicies > 0 ? Math.round((licenseSkippedItems.length / totalPolicies) * 100) : 0;
+
+  // Total Score: Alignment + License Missing (represents addressable compliance)
   const combinedScore = compliancePercentage + missingLicensePercentage;
 
   // Helper function to get category from standardName
@@ -1230,76 +1149,7 @@ const ManageDriftPage = () => {
       ? driftTemplateOptions.find((option) => option.value === templateId) || null
       : null;
   const title = "Manage Drift";
-  const subtitle = [
-    {
-      icon: <Policy />,
-      text: (
-        <CippAutoComplete
-          options={driftTemplateOptions}
-          label="Select Drift Template"
-          multiple={false}
-          creatable={false}
-          isFetching={standardsApi.isFetching}
-          defaultValue={selectedTemplateOption}
-          value={selectedTemplateOption}
-          onChange={(selectedTemplate) => {
-            const query = { ...router.query };
-            if (selectedTemplate && selectedTemplate.value) {
-              query.templateId = selectedTemplate.value;
-            } else {
-              delete query.templateId;
-            }
-            router.replace(
-              {
-                pathname: router.pathname,
-                query: query,
-              },
-              undefined,
-              { shallow: true }
-            );
-          }}
-          sx={{ minWidth: 300 }}
-          placeholder="Select a drift template..."
-        />
-      ),
-    },
-    // Add compliance badges when data is available
-    ...(totalPolicies > 0
-      ? [
-          {
-            component: (
-              <Stack alignItems="center" flexWrap="wrap" direction="row" spacing={2}>
-                <Chip
-                  icon={
-                    <SvgIcon fontSize="small">
-                      <FactCheck />
-                    </SvgIcon>
-                  }
-                  label={`${compliancePercentage}% Compliant`}
-                  variant="outlined"
-                  size="small"
-                  color={
-                    compliancePercentage === 100
-                      ? "success"
-                      : compliancePercentage >= 50
-                      ? "warning"
-                      : "error"
-                  }
-                />
-                <Chip
-                  label={`${combinedScore}% Combined Score`}
-                  variant="outlined"
-                  size="small"
-                  color={
-                    combinedScore >= 80 ? "success" : combinedScore >= 60 ? "warning" : "error"
-                  }
-                />
-              </Stack>
-            ),
-          },
-        ]
-      : []),
-  ];
+  const subtitle = [];
 
   return (
     <HeaderedTabbedLayout
@@ -1424,12 +1274,58 @@ const ManageDriftPage = () => {
                         variant="outlined"
                       />
                     </Box>
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Typography variant="body2" fontWeight={600}>
+                        Total Score
+                      </Typography>
+                      <Chip
+                        label={`${combinedScore}%`}
+                        size="small"
+                        color={
+                          combinedScore === 100
+                            ? "success"
+                            : combinedScore >= 80
+                            ? "warning"
+                            : combinedScore >= 30
+                            ? "warning"
+                            : "error"
+                        }
+                        variant="outlined"
+                      />
+                    </Box>
                   </Stack>
                 </CippButtonCard>
 
                 {/* Filters Card */}
                 <CippButtonCard title="Filters">
                   <Stack spacing={2}>
+                    <CippAutoComplete
+                      options={driftTemplateOptions}
+                      label="Select Drift Template"
+                      multiple={false}
+                      creatable={false}
+                      isFetching={standardsApi.isFetching}
+                      defaultValue={selectedTemplateOption}
+                      value={selectedTemplateOption}
+                      onChange={(selectedTemplate) => {
+                        const query = { ...router.query };
+                        if (selectedTemplate && selectedTemplate.value) {
+                          query.templateId = selectedTemplate.value;
+                        } else {
+                          delete query.templateId;
+                        }
+                        router.replace(
+                          {
+                            pathname: router.pathname,
+                            query: query,
+                          },
+                          undefined,
+                          { shallow: true }
+                        );
+                      }}
+                      placeholder="Select a drift template..."
+                    />
+
                     <TextField
                       fullWidth
                       size="small"
@@ -1484,7 +1380,7 @@ const ManageDriftPage = () => {
 
             {/* Right side - Deviation Management */}
             <Grid size={{ xs: 12, md: 8 }}>
-              <Stack spacing={3}>
+              <Stack spacing={3} sx={{ pr: 2 }}>
                 {/* Current Deviations Section */}
                 {(!filterStatus ||
                   filterStatus.length === 0 ||
@@ -1662,6 +1558,179 @@ const ManageDriftPage = () => {
           relatedQueryKeys={[`TenantDrift-${tenantFilter}`]}
         />
       )}
+
+      {/* Render all Menu components outside of card structure */}
+      {deviationItemsWithActions.map((item) => {
+        const supportsDelete =
+          (item.standardName?.includes("ConditionalAccessTemplate") ||
+            item.standardName?.includes("IntuneTemplate")) &&
+          item.expectedValue === "This policy only exists in the tenant, not in the template.";
+        return (
+          <Menu
+            key={`menu-${item.id}`}
+            anchorEl={anchorEl[item.id]}
+            open={Boolean(anchorEl[item.id])}
+            onClose={() => handleMenuClose(item.id)}
+          >
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("accept-customer-specific", item);
+                handleMenuClose(item.id);
+              }}
+            >
+              <CheckCircle sx={{ mr: 1, color: "success.main" }} />
+              Accept Deviation - Customer Specific
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("accept", item);
+                handleMenuClose(item.id);
+              }}
+            >
+              <Check sx={{ mr: 1, color: "info.main" }} />
+              Accept Deviation
+            </MenuItem>
+            {supportsDelete && (
+              <MenuItem
+                onClick={() => {
+                  handleDeviationAction("deny-delete", item);
+                  handleMenuClose(item.id);
+                }}
+              >
+                <Block sx={{ mr: 1, color: "error.main" }} />
+                Deny Deviation - Delete Policy
+              </MenuItem>
+            )}
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("deny-remediate", item);
+                handleMenuClose(item.id);
+              }}
+            >
+              <Cancel sx={{ mr: 1, color: "error.main" }} />
+              Deny Deviation - Remediate to align with template
+            </MenuItem>
+          </Menu>
+        );
+      })}
+
+      {acceptedDeviationItemsWithActions.map((item) => {
+        const supportsDelete =
+          (item.standardName?.includes("ConditionalAccessTemplate") ||
+            item.standardName?.includes("IntuneTemplate")) &&
+          item.expectedValue === "This policy only exists in the tenant, not in the template.";
+        return (
+          <Menu
+            key={`menu-accepted-${item.id}`}
+            anchorEl={anchorEl[`accepted-${item.id}`]}
+            open={Boolean(anchorEl[`accepted-${item.id}`])}
+            onClose={() => handleMenuClose(`accepted-${item.id}`)}
+          >
+            {supportsDelete && (
+              <MenuItem
+                onClick={() => {
+                  handleDeviationAction("deny-delete", item);
+                  handleMenuClose(`accepted-${item.id}`);
+                }}
+              >
+                <Block sx={{ mr: 1, color: "error.main" }} />
+                Deny - Delete Policy
+              </MenuItem>
+            )}
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("deny-remediate", item);
+                handleMenuClose(`accepted-${item.id}`);
+              }}
+            >
+              <Cancel sx={{ mr: 1, color: "error.main" }} />
+              Deny - Remediate to align with template
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("accept-customer-specific", item);
+                handleMenuClose(`accepted-${item.id}`);
+              }}
+            >
+              <CheckCircle sx={{ mr: 1, color: "info.main" }} />
+              Accept - Customer Specific
+            </MenuItem>
+          </Menu>
+        );
+      })}
+
+      {customerSpecificDeviationItemsWithActions.map((item) => {
+        const supportsDelete =
+          (item.standardName?.includes("ConditionalAccessTemplate") ||
+            item.standardName?.includes("IntuneTemplate")) &&
+          item.expectedValue === "This policy only exists in the tenant, not in the template.";
+        return (
+          <Menu
+            key={`menu-customer-${item.id}`}
+            anchorEl={anchorEl[`customer-${item.id}`]}
+            open={Boolean(anchorEl[`customer-${item.id}`])}
+            onClose={() => handleMenuClose(`customer-${item.id}`)}
+          >
+            {supportsDelete && (
+              <MenuItem
+                onClick={() => {
+                  handleDeviationAction("deny-delete", item);
+                  handleMenuClose(`customer-${item.id}`);
+                }}
+              >
+                <Block sx={{ mr: 1, color: "error.main" }} />
+                Deny - Delete
+              </MenuItem>
+            )}
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("deny-remediate", item);
+                handleMenuClose(`customer-${item.id}`);
+              }}
+            >
+              <Cancel sx={{ mr: 1, color: "error.main" }} />
+              Deny - Remediate to align with template
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                handleDeviationAction("accept", item);
+                handleMenuClose(`customer-${item.id}`);
+              }}
+            >
+              <Check sx={{ mr: 1, color: "success.main" }} />
+              Accept
+            </MenuItem>
+          </Menu>
+        );
+      })}
+
+      {deniedDeviationItemsWithActions.map((item) => (
+        <Menu
+          key={`menu-denied-${item.id}`}
+          anchorEl={anchorEl[`denied-${item.id}`]}
+          open={Boolean(anchorEl[`denied-${item.id}`])}
+          onClose={() => handleMenuClose(`denied-${item.id}`)}
+        >
+          <MenuItem
+            onClick={() => {
+              handleDeviationAction("accept", item);
+              handleMenuClose(`denied-${item.id}`);
+            }}
+          >
+            <Check sx={{ mr: 1, color: "success.main" }} />
+            Accept
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              handleDeviationAction("accept-customer-specific", item);
+              handleMenuClose(`denied-${item.id}`);
+            }}
+          >
+            <CheckCircle sx={{ mr: 1, color: "info.main" }} />
+            Accept - Customer Specific
+          </MenuItem>
+        </Menu>
+      ))}
 
       {/* Hidden ExecutiveReportButton that gets triggered programmatically */}
       <Box sx={{ position: "absolute", top: -9999, left: -9999 }}>

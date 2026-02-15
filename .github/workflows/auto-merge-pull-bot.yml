@@ -10,6 +10,7 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     permissions:
+      workflows: write
       contents: write
       pull-requests: write
     steps:

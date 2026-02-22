@@ -1,22 +1,21 @@
-import { Button, ButtonGroup, SvgIcon, Typography, TextField, Box } from "@mui/material";
+import { Button, Typography, TextField, Box } from "@mui/material";
 import CippButtonCard from "../CippCards/CippButtonCard";
 import { ApiGetCall, ApiPostCall } from "../../api/ApiCall";
 import { CippApiResults } from "../CippComponents/CippApiResults";
-import { History } from "@mui/icons-material";
 import { useState, useEffect } from "react";
 
-const CippBackupRetentionSettings = () => {
+const CippLogRetentionSettings = () => {
   const retentionSetting = ApiGetCall({
-    url: "/api/ExecBackupRetentionConfig?List=true",
-    queryKey: "BackupRetentionSettings",
+    url: "/api/ExecLogRetentionConfig?List=true",
+    queryKey: "LogRetentionSettings",
   });
 
   const retentionChange = ApiPostCall({
     datafromUrl: true,
-    relatedQueryKeys: "BackupRetentionSettings",
+    relatedQueryKeys: "LogRetentionSettings",
   });
 
-  const [retentionDays, setRetentionDays] = useState(30);
+  const [retentionDays, setRetentionDays] = useState(90);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -33,11 +32,16 @@ const CippBackupRetentionSettings = () => {
       return;
     }
 
+    if (days > 365) {
+      setError("Retention must be at most 365 days");
+      return;
+    }
+
     setError("");
     retentionChange.mutate({
-      url: "/api/ExecBackupRetentionConfig",
+      url: "/api/ExecLogRetentionConfig",
       data: { RetentionDays: days },
-      queryKey: "BackupRetentionPost",
+      queryKey: "LogRetentionPost",
     });
   };
 
@@ -48,7 +52,9 @@ const CippBackupRetentionSettings = () => {
     const days = parseInt(value);
     if (!isNaN(days) && days < 7) {
       setError("Retention must be at least 7 days");
-    } else if (isNaN(days)) {
+    } else if (!isNaN(days) && days > 365) {
+      setError("Retention must be at most 365 days");
+    } else if (isNaN(days) && value !== "") {
       setError("Please enter a valid number");
     } else {
       setError("");
@@ -64,7 +70,7 @@ const CippBackupRetentionSettings = () => {
           value={retentionDays}
           onChange={handleInputChange}
           disabled={retentionChange.isPending || retentionSetting.isLoading}
-          inputProps={{ min: 7 }}
+          inputProps={{ min: 7, max: 365 }}
           error={!!error}
           helperText={error}
           sx={{ width: "120px" }}
@@ -86,18 +92,17 @@ const CippBackupRetentionSettings = () => {
 
   return (
     <CippButtonCard
-      title="Backup Retention"
+      title="Log Retention"
       cardSx={{ display: "flex", flexDirection: "column", height: "100%" }}
       CardButton={<RetentionControls />}
     >
       <Typography variant="body2">
-        Configure how long to keep backup files. Both CIPP system backups and tenant backups will be
-        automatically deleted after this period. Minimum retention is 7 days, default is 30 days.
-        Cleanup runs daily at 2:00 AM.
+        Configure how long to keep CIPP log entries. Logs will be automatically deleted after this
+        period. Minimum retention is 7 days, maximum is 365 days, default is 90 days.
       </Typography>
       <CippApiResults apiObject={retentionChange} />
     </CippButtonCard>
   );
 };
 
-export default CippBackupRetentionSettings;
+export default CippLogRetentionSettings;

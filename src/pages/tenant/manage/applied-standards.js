@@ -1779,8 +1779,8 @@ const Page = () => {
                               </Box>
                             ) : (
                               <Alert severity="info">
-                                This data has not yet been collected. Collect the data by pressing
-                                the report button on the top of the page.
+                                This data has not yet been collected. Collect the data by selecting
+                                Refresh Data from the Actions dropdown on the top of the page.
                               </Alert>
                             )}
 
@@ -2070,43 +2070,105 @@ const Page = () => {
                                               </Typography>
                                               {Object.entries(
                                                 standard.currentTenantValue.CurrentValue,
-                                              ).map(([key, val]) => (
-                                                <Box key={key}>
-                                                  <Typography
-                                                    variant="subtitle2"
-                                                    sx={{
-                                                      fontWeight: 600,
-                                                      mb: 1,
-                                                      color: "warning.main",
-                                                    }}
-                                                  >
-                                                    {key}
-                                                  </Typography>
-                                                  <Box
-                                                    sx={{
-                                                      p: 1.5,
-                                                      bgcolor: "action.hover",
-                                                      borderRadius: 1,
-                                                      border: "1px solid",
-                                                      borderColor: "divider",
-                                                    }}
-                                                  >
+                                              ).map(([key, val]) => {
+                                                // Compare with expected value for this property
+                                                const expectedVal =
+                                                  standard.currentTenantValue?.ExpectedValue?.[key];
+                                                const isMatch = (() => {
+                                                  if (expectedVal === undefined) return false;
+                                                  // Deep comparison handling nested objects and case-insensitive strings
+                                                  const compareDeep = (v1, v2) => {
+                                                    if (
+                                                      typeof v1 === "string" &&
+                                                      typeof v2 === "string"
+                                                    ) {
+                                                      return v1.toLowerCase() === v2.toLowerCase();
+                                                    }
+                                                    if (
+                                                      typeof v1 === "object" &&
+                                                      v1 !== null &&
+                                                      typeof v2 === "object" &&
+                                                      v2 !== null
+                                                    ) {
+                                                      return (
+                                                        JSON.stringify(v1) === JSON.stringify(v2)
+                                                      );
+                                                    }
+                                                    return (
+                                                      JSON.stringify(v1) === JSON.stringify(v2)
+                                                    );
+                                                  };
+                                                  return compareDeep(val, expectedVal);
+                                                })();
+
+                                                return (
+                                                  <Box key={key}>
                                                     <Typography
-                                                      variant="body2"
+                                                      variant="subtitle2"
                                                       sx={{
-                                                        fontFamily: "monospace",
-                                                        fontSize: "0.8125rem",
-                                                        whiteSpace: "pre-wrap",
-                                                        wordBreak: "break-word",
+                                                        fontWeight: 600,
+                                                        mb: 1,
+                                                        color: isMatch
+                                                          ? "success.main"
+                                                          : "warning.main",
                                                       }}
                                                     >
-                                                      {val !== undefined
-                                                        ? JSON.stringify(val, null, 2)
-                                                        : "Not set"}
+                                                      {key}
                                                     </Typography>
+                                                    <Box
+                                                      sx={{
+                                                        p: 1.5,
+                                                        bgcolor: isMatch
+                                                          ? "success.lighter"
+                                                          : "action.hover",
+                                                        borderRadius: isMatch ? "12px" : 1,
+                                                        border: isMatch ? "2px solid" : "1px solid",
+                                                        borderColor: isMatch
+                                                          ? "success.main"
+                                                          : "divider",
+                                                        position: "relative",
+                                                      }}
+                                                    >
+                                                      {isMatch && (
+                                                        <Box
+                                                          sx={{
+                                                            position: "absolute",
+                                                            top: -8,
+                                                            right: -8,
+                                                            width: 24,
+                                                            height: 24,
+                                                            borderRadius: "50%",
+                                                            bgcolor: "success.main",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                          }}
+                                                        >
+                                                          <Check
+                                                            sx={{ color: "white", fontSize: 16 }}
+                                                          />
+                                                        </Box>
+                                                      )}
+                                                      <Typography
+                                                        variant="body2"
+                                                        sx={{
+                                                          fontFamily: "monospace",
+                                                          fontSize: "0.8125rem",
+                                                          whiteSpace: "pre-wrap",
+                                                          wordBreak: "break-word",
+                                                          color: isMatch
+                                                            ? "success.dark"
+                                                            : "inherit",
+                                                        }}
+                                                      >
+                                                        {val !== undefined
+                                                          ? JSON.stringify(val, null, 2)
+                                                          : "Not set"}
+                                                      </Typography>
+                                                    </Box>
                                                   </Box>
-                                                </Box>
-                                              ))}
+                                                );
+                                              })}
                                             </Stack>
                                           ) : (
                                             <Box
@@ -2126,7 +2188,7 @@ const Page = () => {
                                                   textTransform: "uppercase",
                                                   letterSpacing: 0.5,
                                                   display: "block",
-                                                  mb: 1,
+                                                  mb: 2,
                                                 }}
                                               >
                                                 Current Configuration
@@ -2420,13 +2482,7 @@ const Page = () => {
                                       standard.currentTenantValue.CurrentValue !== null ? (
                                         <Stack
                                           spacing={2}
-                                          sx={{
-                                            mt:
-                                              standard.currentTenantValue?.Value === false ||
-                                              standard.currentTenantValue === false
-                                                ? 1
-                                                : 2,
-                                          }}
+                                          
                                         >
                                           <Typography
                                             variant="caption"
@@ -2441,54 +2497,102 @@ const Page = () => {
                                           </Typography>
                                           {Object.entries(
                                             standard.currentTenantValue.CurrentValue,
-                                          ).map(([key, val]) => (
-                                            <Box key={key}>
-                                              <Typography
-                                                variant="subtitle2"
-                                                sx={{
-                                                  fontWeight: 600,
-                                                  mb: 1,
-                                                  color: "warning.main",
-                                                }}
-                                              >
-                                                {key}
-                                              </Typography>
-                                              <Box
-                                                sx={{
-                                                  p: 1.5,
-                                                  bgcolor: "action.hover",
-                                                  borderRadius: 1,
-                                                  border: "1px solid",
-                                                  borderColor: "divider",
-                                                }}
-                                              >
+                                          ).map(([key, val]) => {
+                                            // Compare with expected value for this property
+                                            const expectedVal =
+                                              standard.currentTenantValue?.ExpectedValue?.[key];
+                                            const isMatch = (() => {
+                                              if (expectedVal === undefined) return false;
+                                              // Deep comparison handling nested objects and case-insensitive strings
+                                              const compareDeep = (v1, v2) => {
+                                                if (
+                                                  typeof v1 === "string" &&
+                                                  typeof v2 === "string"
+                                                ) {
+                                                  return v1.toLowerCase() === v2.toLowerCase();
+                                                }
+                                                if (
+                                                  typeof v1 === "object" &&
+                                                  v1 !== null &&
+                                                  typeof v2 === "object" &&
+                                                  v2 !== null
+                                                ) {
+                                                  return JSON.stringify(v1) === JSON.stringify(v2);
+                                                }
+                                                return JSON.stringify(v1) === JSON.stringify(v2);
+                                              };
+                                              return compareDeep(val, expectedVal);
+                                            })();
+
+                                            return (
+                                              <Box key={key}>
                                                 <Typography
-                                                  variant="body2"
+                                                  variant="subtitle2"
                                                   sx={{
-                                                    fontFamily: "monospace",
-                                                    fontSize: "0.8125rem",
-                                                    whiteSpace: "pre-wrap",
-                                                    wordBreak: "break-word",
+                                                    fontWeight: 600,
+                                                    mb: 1,
+                                                    color: isMatch
+                                                      ? "success.main"
+                                                      : "warning.main",
                                                   }}
                                                 >
-                                                  {val !== undefined
-                                                    ? JSON.stringify(val, null, 2)
-                                                    : "Not set"}
+                                                  {key}
                                                 </Typography>
+                                                <Box
+                                                  sx={{
+                                                    p: 1.5,
+                                                    bgcolor: isMatch
+                                                      ? "success.lighter"
+                                                      : "action.hover",
+                                                    borderRadius: isMatch ? "12px" : 1,
+                                                    border: isMatch ? "2px solid" : "1px solid",
+                                                    borderColor: isMatch
+                                                      ? "success.main"
+                                                      : "divider",
+                                                    position: "relative",
+                                                  }}
+                                                >
+                                                  {isMatch && (
+                                                    <Box
+                                                      sx={{
+                                                        position: "absolute",
+                                                        top: -8,
+                                                        right: -8,
+                                                        width: 24,
+                                                        height: 24,
+                                                        borderRadius: "50%",
+                                                        bgcolor: "success.main",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                      }}
+                                                    >
+                                                      <Check
+                                                        sx={{ color: "white", fontSize: 16 }}
+                                                      />
+                                                    </Box>
+                                                  )}
+                                                  <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                      fontFamily: "monospace",
+                                                      fontSize: "0.8125rem",
+                                                      whiteSpace: "pre-wrap",
+                                                      wordBreak: "break-word",
+                                                      color: isMatch ? "success.dark" : "inherit",
+                                                    }}
+                                                  >
+                                                    {val !== undefined
+                                                      ? JSON.stringify(val, null, 2)
+                                                      : "Not set"}
+                                                  </Typography>
+                                                </Box>
                                               </Box>
-                                            </Box>
-                                          ))}
+                                            );
+                                          })}
                                         </Stack>
                                       ) : (
-                                        <Box
-                                          sx={{
-                                            mt:
-                                              standard.currentTenantValue?.Value === false ||
-                                              standard.currentTenantValue === false
-                                                ? 1
-                                                : 2,
-                                          }}
-                                        >
+                                        <Box>
                                           <Typography
                                             variant="caption"
                                             sx={{
@@ -2497,7 +2601,7 @@ const Page = () => {
                                               textTransform: "uppercase",
                                               letterSpacing: 0.5,
                                               display: "block",
-                                              mb: 1,
+                                              mb: 2,
                                             }}
                                           >
                                             Current Configuration

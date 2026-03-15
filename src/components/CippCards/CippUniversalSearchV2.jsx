@@ -10,33 +10,52 @@ import {
   CircularProgress,
   InputAdornment,
   Portal,
+  Button,
 } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
 import { ApiGetCall } from "../../api/ApiCall";
-import { useSettings } from "../../hooks/use-settings";
 import { useRouter } from "next/router";
+import { BulkActionsMenu } from "../bulk-actions-menu";
+import { CippOffCanvas } from "../CippComponents/CippOffCanvas";
+import { CippBitlockerKeySearch } from "../CippComponents/CippBitlockerKeySearch";
 
 export const CippUniversalSearchV2 = React.forwardRef(
   ({ onConfirm = () => {}, onChange = () => {}, maxResults = 10, value = "" }, ref) => {
     const [searchValue, setSearchValue] = useState(value);
+    const [searchType, setSearchType] = useState("Users");
+    const [bitlockerLookupType, setBitlockerLookupType] = useState("keyId");
     const [showDropdown, setShowDropdown] = useState(false);
+    const [bitlockerDrawerVisible, setBitlockerDrawerVisible] = useState(false);
+    const [bitlockerDrawerDefaults, setBitlockerDrawerDefaults] = useState({
+      searchTerm: "",
+      searchType: "keyId",
+    });
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
     const containerRef = useRef(null);
     const textFieldRef = useRef(null);
     const router = useRouter();
-    const settings = useSettings();
-    const { currentTenant } = settings;
 
-    const search = ApiGetCall({
+    const universalSearch = ApiGetCall({
       url: `/api/ExecUniversalSearchV2`,
       data: {
-        tenantFilter: currentTenant,
         searchTerms: searchValue,
         limit: maxResults,
+        type: searchType,
       },
-      queryKey: `searchV2-${currentTenant}-${searchValue}`,
+      queryKey: `searchV2-${searchType}-${searchValue}`,
       waiting: false,
     });
+
+    const bitlockerSearch = ApiGetCall({
+      url: "/api/ExecBitlockerSearch",
+      data: {
+        [bitlockerLookupType]: searchValue,
+      },
+      queryKey: `bitlocker-universal-${bitlockerLookupType}-${searchValue}`,
+      waiting: false,
+    });
+
+    const activeSearch = searchType === "BitLocker" ? bitlockerSearch : universalSearch;
 
     const handleChange = (event) => {
       const newValue = event.target.value;
@@ -61,20 +80,83 @@ export const CippUniversalSearchV2 = React.forwardRef(
 
     const handleKeyDown = (event) => {
       if (event.key === "Enter" && searchValue.length > 0) {
+        handleSearch();
+      }
+    };
+
+    const handleSearch = () => {
+      if (searchValue.length > 0) {
         updateDropdownPosition();
-        search.refetch();
+        activeSearch.refetch();
         setShowDropdown(true);
       }
     };
 
     const handleResultClick = (match) => {
-      const userData = match.Data || {};
+      const itemData = match.Data || {};
       const tenantDomain = match.Tenant || "";
-      router.push(
-        `/identity/administration/users/user?tenantFilter=${tenantDomain}&userId=${userData.id}`,
-      );
+      if (searchType === "Users") {
+        router.push(
+          `/identity/administration/users/user?tenantFilter=${tenantDomain}&userId=${itemData.id}`,
+        );
+      } else if (searchType === "Groups") {
+        router.push(
+          `/identity/administration/groups/group?groupId=${itemData.id}&tenantFilter=${tenantDomain}`,
+        );
+      }
       setShowDropdown(false);
     };
+
+    const handleTypeChange = (type) => {
+      setSearchType(type);
+      if (type === "BitLocker") {
+        setBitlockerLookupType("keyId");
+      }
+      setShowDropdown(false);
+    };
+
+    const handleBitlockerResultClick = (match) => {
+      setBitlockerDrawerDefaults({
+        searchTerm:
+          bitlockerLookupType === "deviceId"
+            ? match?.deviceId || searchValue
+            : match?.keyId || searchValue,
+        searchType: bitlockerLookupType,
+      });
+      setBitlockerDrawerVisible(true);
+      setShowDropdown(false);
+    };
+
+    const typeMenuActions = [
+      {
+        label: "Users",
+        icon: "UsersIcon",
+        onClick: () => handleTypeChange("Users"),
+      },
+      {
+        label: "Groups",
+        icon: "Group",
+        onClick: () => handleTypeChange("Groups"),
+      },
+      {
+        label: "BitLocker",
+        icon: "FilePresent",
+        onClick: () => handleTypeChange("BitLocker"),
+      },
+    ];
+
+    const bitlockerLookupActions = [
+      {
+        label: "Key ID",
+        icon: "FilePresent",
+        onClick: () => setBitlockerLookupType("keyId"),
+      },
+      {
+        label: "Device ID",
+        icon: "Laptop",
+        onClick: () => setBitlockerLookupType("deviceId"),
+      },
+    ];
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -111,12 +193,40 @@ export const CippUniversalSearchV2 = React.forwardRef(
       }
     }, [showDropdown]);
 
-    const hasResults = Array.isArray(search?.data) && search.data.length > 0;
+    const bitlockerResults = Array.isArray(bitlockerSearch?.data?.Results)
+      ? bitlockerSearch.data.Results
+      : [];
+    const universalResults = Array.isArray(universalSearch?.data) ? universalSearch.data : [];
+    const hasResults =
+      searchType === "BitLocker" ? bitlockerResults.length > 0 : universalResults.length > 0;
     const shouldShowDropdown = showDropdown && searchValue.length > 0;
+
+    const getLabel = () => {
+      if (searchType === "Users") {
+        return "Search users by UPN or Display Name";
+      } else if (searchType === "Groups") {
+        return "Search groups by Display Name";
+      } else if (searchType === "BitLocker") {
+        return bitlockerLookupType === "deviceId"
+          ? "Search BitLocker by Device ID"
+          : "Search BitLocker by Recovery Key ID";
+      }
+      return "Search";
+    };
 
     return (
       <>
-        <Box ref={containerRef} sx={{ width: "100%" }}>
+        <Box ref={containerRef} sx={{ width: "100%", display: "flex", gap: 1 }}>
+          <BulkActionsMenu
+            buttonName={searchType}
+            actions={typeMenuActions}
+          />
+          {searchType === "BitLocker" && (
+            <BulkActionsMenu
+              buttonName={bitlockerLookupType === "deviceId" ? "Device ID" : "Key ID"}
+              actions={bitlockerLookupActions}
+            />
+          )}
           <TextField
             ref={(node) => {
               textFieldRef.current = node;
@@ -128,7 +238,7 @@ export const CippUniversalSearchV2 = React.forwardRef(
             }}
             fullWidth
             type="text"
-            label="Search users by UPN or Display Name"
+            label={getLabel()}
             onKeyDown={handleKeyDown}
             onChange={handleChange}
             value={searchValue}
@@ -141,7 +251,7 @@ export const CippUniversalSearchV2 = React.forwardRef(
                   <SearchIcon color="action" sx={{ fontSize: 20 }} />
                 </InputAdornment>
               ),
-              endAdornment: search.isFetching ? (
+              endAdornment: activeSearch.isFetching ? (
                 <InputAdornment position="end">
                   <CircularProgress size={20} />
                 </InputAdornment>
@@ -154,6 +264,15 @@ export const CippUniversalSearchV2 = React.forwardRef(
               },
             }}
           />
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            disabled={searchValue.length === 0 || activeSearch.isFetching}
+            startIcon={<SearchIcon />}
+            sx={{ flexShrink: 0 }}
+          >
+            Search
+          </Button>
         </Box>
 
         {shouldShowDropdown && (
@@ -174,17 +293,25 @@ export const CippUniversalSearchV2 = React.forwardRef(
                 borderColor: "divider",
               }}
             >
-              {search.isFetching ? (
+              {activeSearch.isFetching ? (
                 <Box sx={{ p: 2 }}>
                   <Skeleton height={60} sx={{ mb: 1 }} />
                   <Skeleton height={60} />
                 </Box>
               ) : hasResults ? (
-                <Results
-                  items={search.data}
-                  searchValue={searchValue}
-                  onResultClick={handleResultClick}
-                />
+                searchType === "BitLocker" ? (
+                  <BitlockerResults
+                    items={bitlockerResults}
+                    onResultClick={handleBitlockerResultClick}
+                  />
+                ) : (
+                  <Results
+                    items={universalResults}
+                    searchValue={searchValue}
+                    onResultClick={handleResultClick}
+                    searchType={searchType}
+                  />
+                )
               ) : (
                 <Box sx={{ p: 3, textAlign: "center" }}>
                   <Typography variant="body2" color="text.secondary">
@@ -195,6 +322,20 @@ export const CippUniversalSearchV2 = React.forwardRef(
             </Paper>
           </Portal>
         )}
+
+        <CippOffCanvas
+          title="BitLocker Key Details"
+          visible={bitlockerDrawerVisible}
+          onClose={() => setBitlockerDrawerVisible(false)}
+          size="xl"
+          contentPadding={0}
+        >
+          <CippBitlockerKeySearch
+            initialSearchTerm={bitlockerDrawerDefaults.searchTerm}
+            initialSearchType={bitlockerDrawerDefaults.searchType}
+            autoSearch={true}
+          />
+        </CippOffCanvas>
       </>
     );
   },
@@ -202,7 +343,7 @@ export const CippUniversalSearchV2 = React.forwardRef(
 
 CippUniversalSearchV2.displayName = "CippUniversalSearchV2";
 
-const Results = ({ items = [], searchValue, onResultClick }) => {
+const Results = ({ items = [], searchValue, onResultClick, searchType = "Users" }) => {
   const highlightMatch = (text) => {
     if (!text || !searchValue) return text;
     const escapedSearch = searchValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -221,7 +362,7 @@ const Results = ({ items = [], searchValue, onResultClick }) => {
   return (
     <>
       {items.map((match, index) => {
-        const userData = match.Data || {};
+        const itemData = match.Data || {};
         const tenantDomain = match.Tenant || "";
 
         return (
@@ -241,14 +382,30 @@ const Results = ({ items = [], searchValue, onResultClick }) => {
             <ListItemText
               primary={
                 <Typography variant="body1" fontWeight="medium">
-                  {highlightMatch(userData.displayName || "")}
+                  {highlightMatch(itemData.displayName || "")}
                 </Typography>
               }
               secondary={
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    {highlightMatch(userData.userPrincipalName || "")}
-                  </Typography>
+                  {searchType === "Users" && (
+                    <Typography variant="body2" color="text.secondary">
+                      {highlightMatch(itemData.userPrincipalName || "")}
+                    </Typography>
+                  )}
+                  {searchType === "Groups" && (
+                    <>
+                      {itemData.mail && (
+                        <Typography variant="body2" color="text.secondary">
+                          {highlightMatch(itemData.mail || "")}
+                        </Typography>
+                      )}
+                      {itemData.description && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {highlightMatch(itemData.description || "")}
+                        </Typography>
+                      )}
+                    </>
+                  )}
                   <Typography
                     variant="caption"
                     color="text.secondary"
@@ -262,6 +419,49 @@ const Results = ({ items = [], searchValue, onResultClick }) => {
           </MenuItem>
         );
       })}
+    </>
+  );
+};
+
+const BitlockerResults = ({ items = [], onResultClick }) => {
+  return (
+    <>
+      {items.map((result, index) => (
+        <MenuItem
+          key={result.keyId || index}
+          onClick={() => onResultClick(result)}
+          sx={{
+            py: 1.5,
+            px: 2,
+            borderBottom: index < items.length - 1 ? "1px solid" : "none",
+            borderColor: "divider",
+            "&:hover": {
+              backgroundColor: "action.hover",
+            },
+          }}
+        >
+          <ListItemText
+            primary={
+              <Typography variant="body1" fontWeight="medium">
+                {result.deviceName || "Unknown Device"}
+              </Typography>
+            }
+            secondary={
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Key ID: {result.keyId || "N/A"}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Device ID: {result.deviceId || "N/A"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                  Tenant: {result.tenant || "N/A"}
+                </Typography>
+              </Box>
+            }
+          />
+        </MenuItem>
+      ))}
     </>
   );
 };

@@ -1,8 +1,8 @@
 import { useState } from "react";
+import { CippIcons } from "../../utils/icon-registry"
 import { Button, Link, Dialog, DialogActions, DialogContent, DialogTitle } from "@mui/material";
 import { Grid } from "@mui/system";
 import { useForm, useWatch } from "react-hook-form";
-import { GroupAdd, Delete } from "@mui/icons-material";
 import { CippOffCanvas } from "./CippOffCanvas";
 import CippFormComponent from "./CippFormComponent";
 import { CippFormLicenseSelector } from "./CippFormLicenseSelector";
@@ -43,8 +43,34 @@ export const CippBulkUserDrawer = ({
     ...addedFields,
   ];
 
+  const fieldValidators = {
+    givenName: { maxLength: { value: 64, message: "First Name cannot exceed 64 characters" } },
+    surName: { maxLength: { value: 64, message: "Last Name cannot exceed 64 characters" } },
+    displayName: {
+      required: "Display Name is required",
+      maxLength: { value: 256, message: "Display Name cannot exceed 256 characters" },
+    },
+    mailNickName: {
+      required: "Username is required",
+      maxLength: { value: 64, message: "Username cannot exceed 64 characters" },
+      pattern: {
+        value: /^[A-Za-z0-9'.\-_!#^~]+$/,
+        message: "Username can only contain letters, numbers, and ' . - _ ! # ^ ~ characters",
+      },
+    },
+    JobTitle: { maxLength: { value: 128, message: "Job Title cannot exceed 128 characters" } },
+    streetAddress: {
+      maxLength: { value: 1024, message: "Street Address cannot exceed 1024 characters" },
+    },
+    PostalCode: { maxLength: { value: 40, message: "Postal Code cannot exceed 40 characters" } },
+    City: { maxLength: { value: 128, message: "City cannot exceed 128 characters" } },
+    State: { maxLength: { value: 128, message: "State/Province cannot exceed 128 characters" } },
+    Department: { maxLength: { value: 64, message: "Department cannot exceed 64 characters" } },
+    MobilePhone: { maxLength: { value: 64, message: "Mobile # cannot exceed 64 characters" } },
+  };
+
   const formControl = useForm({
-    mode: "onChange",
+    mode: "onBlur",
     defaultValues: {
       tenantFilter: initialState.currentTenant,
       usageLocation: initialState.usageLocation || "US",
@@ -68,7 +94,9 @@ export const CippBulkUserDrawer = ({
   const handleRemoveItem = (row) => {
     if (row === undefined) return false;
     const currentData = formControl.getValues("bulkUser") || [];
-    const index = currentData.findIndex((item) => item === row);
+    const rowKey = JSON.stringify(row);
+    const index = currentData.findIndex((item) => JSON.stringify(item) === rowKey);
+    if (index === -1) return false;
     const newData = [...currentData];
     newData.splice(index, 1);
     formControl.setValue("bulkUser", newData, { shouldValidate: true });
@@ -108,7 +136,7 @@ export const CippBulkUserDrawer = ({
 
   const actions = [
     {
-      icon: <Delete />,
+      icon: <CippIcons.Delete />,
       label: "Delete Row",
       confirmText: "Are you sure you want to delete this row?",
       customFunction: handleRemoveItem,
@@ -119,9 +147,9 @@ export const CippBulkUserDrawer = ({
   return (
     <>
       <PermissionButton
-        requiredPermissions={requiredPermissions}
+        {...(PermissionButton !== Button ? { requiredPermissions } : {})}
         onClick={() => setDrawerVisible(true)}
-        startIcon={<GroupAdd />}
+        startIcon={<CippIcons.GroupAdd />}
       >
         {buttonText}
       </PermissionButton>
@@ -141,8 +169,8 @@ export const CippBulkUserDrawer = ({
               {createBulkUsers.isLoading
                 ? "Creating Users..."
                 : createBulkUsers.isSuccess
-                ? "Create More Users"
-                : "Create Users"}
+                  ? "Create More Users"
+                  : "Create Users"}
             </Button>
             <Button variant="outlined" onClick={handleCloseDrawer}>
               Close
@@ -179,7 +207,7 @@ export const CippBulkUserDrawer = ({
           <Grid size={{ xs: 12 }}>
             <Link
               href={`data:text/csv;charset=utf-8,%EF%BB%BF${encodeURIComponent(
-                fields.join(",") + "\n"
+                fields.join(",") + "\n",
               )}`}
               download="BulkUser.csv"
             >
@@ -227,6 +255,7 @@ export const CippBulkUserDrawer = ({
                     label={getCippTranslation(field)}
                     type="textField"
                     formControl={formControl}
+                    validators={fieldValidators[field]}
                   />
                 </Grid>
               ))}
